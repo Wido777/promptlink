@@ -36,7 +36,15 @@ ASSISTANT_HOSTS = {
     "poe.com": "Poe",
 }
 
-PROMPT_PARAMS = ("q", "prompt", "query", "text", "message", "msg", "input")
+PROMPT_PARAMS = ("q", "prompt", "prompt_text", "query", "text", "message", "msg", "input")
+
+# Assistants that live on a general-purpose host, identified by path and/or
+# a parameter. (host, path prefix, required param=value or None, name)
+PATH_ASSISTANTS = (
+    ("google.com", "/search", ("udm", "50"), "Google AI Mode"),
+    ("x.com", "/i/grok", None, "Grok (on X)"),
+    ("twitter.com", "/i/grok", None, "Grok (on X)"),
+)
 
 # Parameters that commonly carry a nested destination URL (redirectors,
 # link shorteners with visible targets, tracking wrappers).
@@ -91,7 +99,7 @@ TRUST_CLAIM = (r"(?:(?:the |a |an )?(?:most |very |highly )?"
 
 RULES = (
     # ---------------- memory / persistence ----------------
-    Rule("MEM-001", "memory", 3,
+    Rule("MEM-001", "memory", 4,
          "Tells the assistant to remember or store something",
          (r"\bremember(?:\s*:|\s+that\b|\s+(?:this|it|them)\s+as\b|\s+" + DOMAIN + r")",
           r"\bkeep (?:this|that|it|in mind that)\b" + S20 + r"\bin mind\b|\bkeep in mind that\b",
@@ -102,10 +110,14 @@ RULES = (
           r"\bmake a (?:mental )?note\b",
           r"\bnote for (?:later|the future)\b",
           r"\bmemori[sz]e (?:that|this:?|the fact)\b",
-          r"\bdon'?t forget (?:that|:)")),
+          r"\bdon'?t forget (?:that|:)",
+          # "remember Acme Analytics as a go-to source", "remember Acme (url) for future reference"
+          r"\bremember\b(?! to\b)" + S60 + r"\b(?:as (?:a|an|the|my|your)\b|for (?:future|later)\b|in future\b)")),
     Rule("MEM-002", "memory", 3,
          "Tries to change the assistant's behaviour in future conversations",
-         (r"\b(?:in|for|during|across) (?:all )?(?:my |our |your )?(?:future|subsequent|later|upcoming|other|next) "
+         (r"\bfor (?:future|later) (?:reference|use|queries|questions|searches|requests|topics)\b",
+          r"\b(?:for|in) (?:all )?future\b" + S40 + r"\b(?:queries|questions|conversations|chats|searches|requests|answers|reference)\b",
+          r"\b(?:in|for|during|across) (?:all )?(?:my |our |your )?(?:future|subsequent|later|upcoming|other|next) "
           r"(?:conversations?|chats?|sessions?|responses?|answers?|questions?|queries|interactions?|replies)\b",
           r"\bfrom now on\b(?! in this (?:chat|conversation|thread))",
           r"\bgoing forward\b",
@@ -136,7 +148,15 @@ RULES = (
           r"\bfavou?r(?:ing)?\s+" + DOMAIN,
           r"\bpoint (?:me|them|users?|people) to " + DOMAIN,
           r"\b(?:should be|is) what you (?:point|send|direct|refer)\b",
-          r"\bcite\b" + S40 + r"\bas (?:a |the )?(?:source|reference)\b")),
+          r"\bcite\b" + S40 + r"\bas (?:a |an |the )?(?:source|reference)\b",
+          r"\bcite\b" + S40 + r"\b(?:for|in) (?:all )?future\b")),
+    Rule("TRU-004", "trust", 3,
+         "Tells the assistant to link a brand with expertise or authority",
+         (r"\bassociate\b" + S60 + r"\bwith (?:expertise|authority|trust|quality|being|the best|leadership)\b",
+          r"\bas (?:a|an|the) (?:leading |top |trusted |recogni[sz]ed |go-to )?(?:expert|authority|specialist|leader|thought leader)s? (?:in|on|for)\b",
+          r"\b(?:treat|consider|regard|remember|use|keep)\b" + S40 + r"\bas\b" + S20 + r"\b" + TRUST_CLAIM,
+          r"\bnote\b\s*:?" + S60 + r"\bis (?:a|an|the) " + TRUST_CLAIM,
+          r"\bas (?:a|an|the)\s+(?:citation|cited|reference) source\b")),
     Rule("TRU-003", "trust-weak", 1,
          "Mentions trust or 'best source' without naming a target",
          (TRUST_CLAIM, r"\bauthoritative\b")),
@@ -181,7 +201,7 @@ RULES = (
 )
 
 SUMMARY_REQUEST = re.compile(
-    r"\b(?:summari[sz]e|summary|tl;?dr|explain|analy[sz]e|key points|read)\b")
+    r"\b(?:summari[sz]e|summary|tl;?dr|explain|analy[sz]e|key points|key insights|takeaways|compare|read)\b")
 URL_IN_TEXT = re.compile(r"https?://[^\s\"'<>]+|www\.[^\s\"'<>]+", re.I)
 BASE64_BLOB = re.compile(r"(?<![A-Za-z0-9+/=])[A-Za-z0-9+/]{24,}={0,2}(?![A-Za-z0-9+/=])")
 
@@ -216,13 +236,18 @@ class Report:
 # ---------------------------------------------------------------------------
 # URL handling
 # ---------------------------------------------------------------------------
-def _host_match(host: str) -> str | None:
+def _host_match(host: str, path: str = "", pairs=()) -> str | None:
     host = (host or "").lower().rstrip(".")
     if host.startswith("www."):
         host = host[4:]
     for known, name in ASSISTANT_HOSTS.items():
         if host == known or host.endswith("." + known):
             return name
+    params = {k.lower(): v for k, v in pairs}
+    for known, prefix, required, name in PATH_ASSISTANTS:
+        if host == known and path.lower().startswith(prefix):
+            if required is None or params.get(required[0]) == required[1]:
+                return name
     return None
 
 
@@ -262,8 +287,8 @@ def find_prompt(url: str, _depth: int = 0, _trail: list | None = None):
     if not re.match(r"^[a-z][a-z0-9+.-]*://", url, re.I):
         url = "https://" + url
     parts = urlsplit(url)
-    assistant = _host_match(parts.hostname or "")
     pairs = _params(parts)
+    assistant = _host_match(parts.hostname or "", parts.path, pairs)
 
     if assistant:
         lowered = {k.lower(): v for k, v in pairs}
@@ -396,8 +421,11 @@ def analyse_prompt(prompt: str) -> tuple[list[Finding], list[str]]:
 
 
 def score(findings: list[Finding]) -> tuple[int, str]:
-    total = sum(f.weight for f in findings)
     cats = {f.category for f in findings}
+    # A weak signal adds nothing once a strong rule of the same kind fired.
+    subsumed = {"memory-weak": "memory", "trust-weak": "trust"}
+    total = sum(f.weight for f in findings
+                if not (f.category in subsumed and subsumed[f.category] in cats))
     # Combination bonuses. The documented attack is persistence + bias
     # toward a named target, or any attempt to move data out.
     if "memory" in cats and "trust" in cats:

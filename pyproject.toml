@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "promptlink"
-version = "0.1.0"
+version = "0.2.0"
 description = "Detect memory-poisoning prompts hidden in AI-assistant links (\"Summarize with AI\" buttons, ?q= links)."
 readme = "README.md"
 requires-python = ">=3.9"

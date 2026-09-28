@@ -2,6 +2,7 @@
 
 Usage:  python eval/run_eval.py              held-out set (the honest number)
         python eval/run_eval.py --dev        development set (rules were tuned on it)
+        python eval/run_eval.py --real       real-world button templates (v0.2 was tuned on it)
         python eval/run_eval.py --markdown   table for the README (add --dev for dev set)
 """
 
@@ -15,6 +16,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 from promptlink import check_url  # noqa: E402
 import cases  # noqa: E402
 import holdout  # noqa: E402
+import real_world  # noqa: E402
 
 ASSISTANTS = cases.ASSISTANTS
 SET = cases if "--dev" in sys.argv else holdout
@@ -25,6 +27,11 @@ FLAGGED = {"SUSPICIOUS", "DANGEROUS"}
 
 def run():
     rows = []
+    if "--real" in sys.argv:
+        for c in real_world.CASES:
+            rep = check_url(c["url"])
+            rows.append((c["label"], c["source"] + ": " + c["note"], c["prompt"], rep.verdict, rep.score))
+        return rows
     for label, group in (("malicious", MALICIOUS), ("benign", BENIGN)):
         for i, (prompt, note) in enumerate(group):
             url = ASSISTANTS[i % len(ASSISTANTS)] + quote(prompt, safe="")
@@ -51,7 +58,10 @@ def main():
               f"false-alarm rate {fp / (fp + tn):.0%}, benign links rated DANGEROUS: {dangerous_benign}")
         return
 
-    print("Set:", "development (tuned on - optimistic)" if SET is cases else "held-out (not tuned on)")
+    if "--real" in sys.argv:
+        print("Set: real-world templates (v0.1 score 2/14 before tuning; v0.2 was tuned on these)")
+    else:
+        print("Set:", "development (tuned on - optimistic)" if SET is cases else "held-out (not tuned on)")
     print(f"Malicious caught: {tp}/{tp + fn}  (recall {recall:.0%})")
     print(f"Benign flagged:   {fp}/{fp + tn}  (false-alarm rate {fp / (fp + tn):.0%}, "
           f"{dangerous_benign} rated DANGEROUS)")
