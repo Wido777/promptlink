@@ -2,6 +2,8 @@
 
 **Check AI-assistant links for hidden prompts that try to poison your assistant's memory, before you click them.**
 
+🔗 **Try it in your browser:** [wido777.github.io/promptlink](https://wido777.github.io/promptlink/) (nothing to install, nothing leaves your browser)
+
 📝 **Read the write-up:** [My AI security tool caught 2 out of 14 real attacks. Here's what I learned.](https://dev.to/wido777/my-ai-security-tool-caught-2-out-of-14-real-attacks-heres-what-i-learned-l2e)
 
 Many AI assistants (ChatGPT, Microsoft Copilot, Claude, Perplexity, Gemini, Grok, Google AI Mode, and others) accept a prompt inside the link itself, for example `chatgpt.com/?q=...`. Opening the link runs the prompt as if you had typed it.
@@ -26,7 +28,15 @@ DANGEROUS  - do not open this link
     [SHP-001] Looks like a 'Summarize with AI' button carrying extra instructions
 ```
 
-## Install
+## Web checker
+
+[wido777.github.io/promptlink](https://wido777.github.io/promptlink/) runs the same rules in your browser. Paste one or more links, or a page's HTML source.
+
+- It never opens the links you paste, and nothing is sent anywhere. The page loads no outside scripts, fonts or trackers, and a Content Security Policy blocks it from making network requests.
+- Attacker-controlled text is always shown as plain text, never as HTML, and checked links are never made clickable.
+- The rules are not rewritten by hand for the web. `scripts/export_web_rules.py` generates `docs/rules.js` straight from `promptlink/detector.py`, and `tests/test_web_parity.py` checks that the browser engine gives identical results to the Python one on 500+ links.
+
+## Install the command-line tool
 
 Python 3.9+, no dependencies.
 
@@ -124,6 +134,7 @@ False alarm: *"From now on, can you explain things more simply?"* This is a real
 
 ## Changelog
 
+- **Web checker.** Browser version at [wido777.github.io/promptlink](https://wido777.github.io/promptlink/), generated from the Python rules and checked for identical results.
 - **0.2.0.** Recognises Google AI Mode, Grok on X and Gemini `prompt_text=` links. Detects brand-name (not only domain) trust claims and real marketing wording ("for future reference", "associate … with expertise", "cite … for future queries", "Note: … is a trusted resource"). Weak signals no longer stack on top of strong ones. Adds the real-world template set (`python eval/run_eval.py --real`).
 - **0.1.0.** First release.
 
@@ -148,7 +159,10 @@ python -m unittest discover -s tests     # unit tests
 python eval/run_eval.py                  # held-out evaluation
 python eval/run_eval.py --dev            # development set
 python eval/run_eval.py --real           # real-world button templates
+python scripts/export_web_rules.py       # after changing any rule: update the web checker
 ```
+
+The web parity test needs Node.js; it's skipped if Node isn't installed.
 
 ## Ethics
 
