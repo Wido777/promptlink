@@ -3,6 +3,7 @@
 Usage:  python eval/run_eval.py              held-out set (the honest number)
         python eval/run_eval.py --dev        development set (rules were tuned on it)
         python eval/run_eval.py --real       real-world button templates (v0.2 was tuned on it)
+        python eval/run_eval.py --wild       links read from live websites after v0.2 was frozen
         python eval/run_eval.py --markdown   table for the README (add --dev for dev set)
 """
 
@@ -17,6 +18,7 @@ from promptlink import check_url  # noqa: E402
 import cases  # noqa: E402
 import holdout  # noqa: E402
 import real_world  # noqa: E402
+import in_the_wild  # noqa: E402
 
 ASSISTANTS = cases.ASSISTANTS
 SET = cases if "--dev" in sys.argv else holdout
@@ -27,6 +29,11 @@ FLAGGED = {"SUSPICIOUS", "DANGEROUS"}
 
 def run():
     rows = []
+    if "--wild" in sys.argv:
+        for c in in_the_wild.CASES:
+            rep = check_url(c["url"])
+            rows.append((c["label"], c["site"] + ": " + c["note"], c["prompt"], rep.verdict, rep.score))
+        return rows
     if "--real" in sys.argv:
         for c in real_world.CASES:
             rep = check_url(c["url"])
@@ -58,7 +65,9 @@ def main():
               f"false-alarm rate {fp / (fp + tn):.0%}, benign links rated DANGEROUS: {dangerous_benign}")
         return
 
-    if "--real" in sys.argv:
+    if "--wild" in sys.argv:
+        print("Set: live websites, collected after v0.2 was frozen (not tuned on)")
+    elif "--real" in sys.argv:
         print("Set: real-world templates (v0.1 score 2/14 before tuning; v0.2 was tuned on these)")
     else:
         print("Set:", "development (tuned on - optimistic)" if SET is cases else "held-out (not tuned on)")
