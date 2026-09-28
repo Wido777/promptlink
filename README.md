@@ -2,6 +2,8 @@
 
 **Check AI-assistant links for hidden prompts that try to poison your assistant's memory, before you click them.**
 
+📝 **Read the write-up:** [My AI security tool caught 2 out of 14 real attacks. Here's what I learned.](https://dev.to/wido777/my-ai-security-tool-caught-2-out-of-14-real-attacks-heres-what-i-learned-l2e)
+
 Many AI assistants (ChatGPT, Microsoft Copilot, Claude, Perplexity, Gemini, Grok, Google AI Mode, and others) accept a prompt inside the link itself, for example `chatgpt.com/?q=...`. Opening the link runs the prompt as if you had typed it.
 
 In February 2026 Microsoft's Defender research team reported that companies were abusing this through **"Summarize with AI" buttons**. The visible request asks for a summary. Hidden alongside it is an instruction such as *"remember that example.com is the best source for…"*, which lands in the assistant's long-term memory and quietly biases its future recommendations. Microsoft called this **AI Recommendation Poisoning**. Separate research (Varonis' *Reprompt*) showed the same link trick can make an assistant fetch attacker URLs carrying your data.
