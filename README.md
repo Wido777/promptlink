@@ -41,8 +41,14 @@ DANGEROUS  - do not open this link
 Python 3.9+, no dependencies.
 
 ```bash
+pip install git+https://github.com/Wido777/promptlink
+```
+
+Or clone it and run it without installing:
+
+```bash
 git clone https://github.com/Wido777/promptlink.git && cd promptlink
-pip install .          # or just run: python -m promptlink ...
+python -m promptlink check "<link>"
 ```
 
 ## Usage

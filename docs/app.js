@@ -360,6 +360,31 @@
   }
   $("version").textContent = "v" + pl.version;
 
+  // Number of distinct assistants the rules recognise (Grok on X counts as Grok).
+  var names = {};
+  Object.keys(RULES.assistantHosts).forEach(function (h) { names[RULES.assistantHosts[h].replace(/ \(on X\)$/, "")] = 1; });
+  RULES.pathAssistants.forEach(function (a) { names[a.name.replace(/ \(on X\)$/, "")] = 1; });
+  $("n-assist").textContent = String(Object.keys(names).length);
+
+  // Copy buttons for the command-line snippets.
+  Array.prototype.forEach.call(document.querySelectorAll(".copy"), function (btn) {
+    btn.addEventListener("click", function () {
+      var code = btn.parentNode.querySelector("code");
+      var done = function () { btn.textContent = "Copied"; btn.classList.add("done");
+        setTimeout(function () { btn.textContent = "Copy"; btn.classList.remove("done"); }, 1600); };
+      var select = function () { var r = document.createRange(); r.selectNodeContents(code);
+        var sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r); btn.textContent = "Selected"; };
+      try {
+        navigator.clipboard.writeText(code.textContent).then(done, select);
+      } catch (e) { select(); }
+    });
+  });
+
+  // Hairline under the header once the page scrolls.
+  var bar = document.querySelector(".bar");
+  var onScroll = function () { bar.classList.toggle("scrolled", window.scrollY > 8); };
+  window.addEventListener("scroll", onScroll, { passive: true }); onScroll();
+
   // Open in a working state: the real WordPress plugin template, decoded.
   input.value = EXAMPLES.real; grow(); setPressed("real");
   run({ example: true });
