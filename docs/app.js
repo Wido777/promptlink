@@ -355,8 +355,8 @@
     });
   });
   if (/Mac|iPhone|iPad/.test(navigator.platform || "")) {
-    var kbd = $("kbd"); kbd.textContent = "Paste to inspect · ";
-    kbd.appendChild(el("kbd", null, "⌘")); kbd.appendChild(document.createTextNode(" ")); kbd.appendChild(el("kbd", null, "Enter"));
+    var kbd = $("kbd"); kbd.textContent = "";
+    kbd.appendChild(el("kbd", null, "⌘")); kbd.appendChild(document.createTextNode(" + ")); kbd.appendChild(el("kbd", null, "Enter"));
   }
   $("version").textContent = "v" + pl.version;
 
