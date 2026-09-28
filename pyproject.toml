@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "promptlink"
+version = "0.1.0"
+description = "Detect memory-poisoning prompts hidden in AI-assistant links (\"Summarize with AI\" buttons, ?q= links)."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+dependencies = []
+authors = [{ name = "Wido777" }]
+keywords = ["security", "prompt-injection", "llm", "memory-poisoning", "ai-security"]
+
+[project.urls]
+Homepage = "https://github.com/Wido777/promptlink"
+
+[project.scripts]
+promptlink = "promptlink.cli:main"
+
+[tool.setuptools]
+packages = ["promptlink"]
