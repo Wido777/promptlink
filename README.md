@@ -1,5 +1,7 @@
 # promptlink
 
+[![tests](https://github.com/Wido777/promptlink/actions/workflows/tests.yml/badge.svg)](https://github.com/Wido777/promptlink/actions/workflows/tests.yml)
+
 **Check AI-assistant links for hidden prompts that try to poison your assistant's memory, before you click them.**
 
 🔗 **Try it in your browser:** [wido777.github.io/promptlink](https://wido777.github.io/promptlink/) (nothing to install, nothing leaves your browser)
