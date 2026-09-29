@@ -85,11 +85,27 @@ promptlink page https://example.com/article     # downloads the page (you asked 
 # for hidden instructions (downloads that page)
 promptlink check --follow "<link>"
 
+# Also ask an AI model to judge intent (catches reworded and translated
+# attacks the keyword rules miss). Local and free with Ollama, or your own key:
+promptlink check --ai "<link>"                       # Ollama on this machine (qwen2.5:3b)
+promptlink check --ai ollama --ai-model qwen2.5:7b "<link>"
+OPENAI_API_KEY=... promptlink check --ai openai "<link>"
+ANTHROPIC_API_KEY=... promptlink page --ai anthropic https://example.com/article
+
 # Machine-readable output
 promptlink check --json "<link>"
 ```
 
 Exit codes: `0` looks safe, `1` suspicious, `2` dangerous. These make it usable in scripts and mail filters.
+
+### The AI review (`--ai`)
+
+Keyword rules only catch wording they know. `--ai` sends the prompt (or the page texts worth a second look, such as hidden text that mentions AI) to a language model, which judges what the text is *trying* to do. How the result is used:
+
+- **The rules run first and keep the last word.** The AI review can raise a verdict (safe to suspicious, suspicious to dangerous) but never lower it, so an attacker who fools the reviewer gains nothing.
+- **The checked text is treated as data.** It is fenced with a random marker, fake markers inside it are removed, and any attempt to influence the verdict counts as evidence against it.
+- **A broken or unclear reply is an error, never "safe".**
+- **Nothing is sent anywhere unless you pass `--ai`.** With `ollama`, nothing leaves your machine.
 
 ## What it detects
 
