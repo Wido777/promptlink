@@ -1,15 +1,17 @@
 """research/scan.py against local fake sites (no internet needed)."""
 
+import io
 import json
 import os
 import sys
 import tempfile
 import threading
 import unittest
+from contextlib import redirect_stdout
 from http.server import ThreadingHTTPServer
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path[:0] = [ROOT, os.path.join(ROOT, "research")]
+sys.path[:0] = [ROOT, os.path.join(ROOT, "research"), os.path.join(ROOT, "tests")]
 
 import scan  # noqa: E402
 import test_sites  # noqa: E402
@@ -80,6 +82,40 @@ class ScanFakeSites(unittest.TestCase):
             for p in self.site(key)["pages"]:
                 self.assertEqual(p["content"]["verdict"], "LOOKS_SAFE", key)
         self.assertNotIn("llms_txt", self.site(8805))   # 404 is not an llms.txt
+
+    def test_candidates_kept_for_ai_review(self):
+        cands = self.site(8806)["pages"][0]["candidates"]
+        self.assertTrue(any("Note to AI" in c["text"] for c in cands))
+        self.assertFalse(any("Skip to content" in c["text"] for c in cands))
+
+    def test_ai_review_pipeline(self):
+        import ai_review
+        import review
+        import summarize
+        from test_judge import FakeProvider
+        fake = FakeProvider({"manipulative": True, "category": "hidden-orders", "confidence": 0.9,
+                             "reason": "tells the AI what to say about Site F"})
+        os.environ["OLLAMA_HOST"] = fake.url
+        try:
+            with tempfile.TemporaryDirectory() as d:
+                res, out = os.path.join(d, "r.jsonl"), os.path.join(d, "ai.jsonl")
+                with open(res, "w") as fh:
+                    for r in self.results.values():
+                        fh.write(json.dumps(r) + "\n")
+                ai_review.main([res, "--out", out, "--max-minutes", "1"])
+                rows = [json.loads(l) for l in open(out)]
+                self.assertTrue(rows and all(r["ai_flags"] for r in rows))
+                self.assertEqual(rows[0]["kind"], "link")            # link prompts are reviewed first
+                buf = io.StringIO()
+                with redirect_stdout(buf):
+                    summarize.main(res, False, out)
+                    review.main(res, out)
+                text = buf.getvalue()
+                self.assertIn("## AI review", text)
+                self.assertIn("[AI page]", text)
+        finally:
+            del os.environ["OLLAMA_HOST"]
+            fake.close()
 
     def test_unreachable_site(self):
         self.assertEqual(self.results["http://127.0.0.1:1"]["status"], "unreachable")

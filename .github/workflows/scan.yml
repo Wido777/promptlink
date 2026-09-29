@@ -23,6 +23,12 @@ on:
       seed:
         description: "Random seed (same seed = same sites)"
         default: "1"
+      ai_model:
+        description: "Ollama model for the AI review after the scan (empty = no AI review)"
+        default: ""
+      ai_minutes:
+        description: "Time budget for the AI review, in minutes"
+        default: "150"
       pages_per_site:
         description: "Article pages to read per site, besides the homepage"
         default: "2"
@@ -51,9 +57,19 @@ jobs:
           --pages-per-site "${{ inputs.pages_per_site }}"
           ${{ inputs.sample == 'random' && format('--random --random-from {0} --seed {1}', inputs.random_from, inputs.seed) || '' }}
           --out results.jsonl
+      - name: AI review
+        if: inputs.ai_model != ''
+        run: |
+          curl -fsSL https://ollama.com/install.sh | sh
+          (ollama serve > ollama.log 2>&1 &) ; sleep 5
+          for i in $(seq 30); do curl -s localhost:11434/api/version && break; sleep 2; done
+          ollama pull "${{ inputs.ai_model }}"
+          python research/ai_review.py results.jsonl --provider ollama --model "${{ inputs.ai_model }}" \
+            --out ai_review.jsonl --max-minutes "${{ inputs.ai_minutes }}"
       - name: Summarise
         run: |
-          python research/summarize.py results.jsonl | tee summary.md
+          AI=""; [ -f ai_review.jsonl ] && AI="--ai ai_review.jsonl"
+          python research/summarize.py results.jsonl $AI | tee summary.md
           cat summary.md >> "$GITHUB_STEP_SUMMARY"
       - name: Publish summary as annotations (readable through the API)
         run: |
@@ -64,10 +80,22 @@ jobs:
               esc = chunk.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
               print(f"::notice title=scan summary part {n}/{len(chunks)}::{esc}")
           EOF
+      - name: Anonymised review list as annotations
+        env:
+          ANNOTATION_TITLE: review part
+        run: |
+          AI=""; [ -f ai_review.jsonl ] && AI="--ai ai_review.jsonl"
+          python research/review.py results.jsonl $AI > review.md
+          python research/annotate.py review.md 0 10
+      - name: Anonymised review list (more)
+        env:
+          ANNOTATION_TITLE: review part
+        run: python research/annotate.py review.md 10 10
       - uses: actions/upload-artifact@v4
         with:
           name: scan-${{ inputs.sample }}-${{ inputs.sites }}-seed${{ inputs.seed }}-from${{ inputs.offset }}
           path: |
             results.jsonl
             summary.md
+            ai_review.jsonl
           retention-days: 7

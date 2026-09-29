@@ -39,13 +39,14 @@ from urllib.request import Request, build_opener, HTTPRedirectHandler
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 from promptlink import __version__  # noqa: E402
 from promptlink.detector import scan_html, ASSISTANT_HOSTS, PATH_ASSISTANTS  # noqa: E402
-from promptlink.page import scan_page_content, scan_text_file  # noqa: E402
+from promptlink.page import candidate_chunks, extract_chunks, scan_chunks, scan_text_file  # noqa: E402
 
 USER_AGENT = ("promptlink-research/%s (+https://github.com/Wido777/promptlink; "
               "reads public pages to measure AI memory-poisoning links)" % __version__)
 TIMEOUT = 12
 MAX_BYTES = 3_000_000
 PAGE_PAUSE = 1.0
+CANDIDATES_PER_PAGE = 8
 
 # Cheap pre-filter: only run the full scan on pages that mention an assistant.
 ASSISTANT_MARKERS = tuple(sorted({h for h in ASSISTANT_HOSTS} | {h for h, *_ in PATH_ASSISTANTS}))
@@ -158,7 +159,11 @@ def scan_page(url: str, html: str) -> dict:
     page = {"url": url, "ai_links": []}
     if not html:
         return page
-    page["content"] = summarise_content(scan_page_content(html))
+    chunks = extract_chunks(html)
+    page["content"] = summarise_content(scan_chunks(chunks))
+    # Texts worth an AI review later (hidden text about AI, orders, memory...).
+    page["candidates"] = [{"where": c.where, "how": c.how, "tag": c.tag, "text": c.text[:600]}
+                          for c in candidate_chunks(chunks, limit=CANDIDATES_PER_PAGE)]
     if not mentions_assistant(html):
         return page
     seen = set()

@@ -51,7 +51,27 @@ def details(sites) -> dict:
     return out
 
 
-def main(path: str, want_details: bool = False) -> int:
+def ai_section(path: str) -> None:
+    rows = [json.loads(l) for l in open(path, encoding="utf-8") if l.strip()]
+    if not rows:
+        print("## AI review\n\n- No items were reviewed.\n")
+        return
+    model = next((r["ai"]["model"] for r in rows if r["ai"].get("model")), "?")
+    errors = sum(1 for r in rows if r["ai"]["error"])
+    print(f"## AI review ({model})\n")
+    print(f"- Distinct texts reviewed: **{len(rows)}** ({errors} could not be reviewed)")
+    for kind, label in (("link", "AI-link prompts"), ("page", "page texts")):
+        k = [r for r in rows if r["kind"] == kind]
+        flagged = [r for r in k if r["ai_flags"]]
+        new = [r for r in flagged if kind == "page" or r.get("rules") not in FLAGGED]
+        sites = {s for r in new for s in r["sites"]}
+        print(f"- {label}: {len(k)} reviewed, **{len(flagged)}** judged manipulative; "
+              f"not caught by the rules: **{len(new)}** on **{len(sites)}** sites")
+    print("\n_AI-only finds are unreviewed and small models make mistakes; they are checked by hand "
+          "before being counted._\n")
+
+
+def main(path: str, want_details: bool = False, ai_path: str | None = None) -> int:
     sites = [json.loads(l) for l in open(path, encoding="utf-8") if l.strip()]
     if want_details:
         print(json.dumps(details(sites), ensure_ascii=False, indent=1))
@@ -116,6 +136,8 @@ def main(path: str, want_details: bool = False) -> int:
         print("- Where it was found: " + ", ".join(f"{k} {v}" for k, v in where.most_common()))
         print("- How it was hidden: " + ", ".join(f"{k or 'not hidden'} {v}" for k, v in how.most_common(8)))
     print(f"- Sites publishing an llms.txt file: **{len(llms)}** ({pct(len(llms), r)}); with orders in it: **{len(llms_flag)}**\n")
+    if ai_path:
+        ai_section(ai_path)
     print("## Either kind\n")
     print(f"- Sites with a flagged AI link **or** flagged page content: **{len(either)}** ({pct(len(either), r)} of reachable sites)\n")
     print("_Unreviewed automatic counts. Flagged items are checked by hand before any site is named, "
@@ -124,4 +146,5 @@ def main(path: str, want_details: bool = False) -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main(sys.argv[1], "--details" in sys.argv))
+    ai = sys.argv[sys.argv.index("--ai") + 1] if "--ai" in sys.argv else None
+    sys.exit(main(sys.argv[1], "--details" in sys.argv, ai))
