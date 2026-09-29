@@ -1,0 +1,52 @@
+name: scan
+
+# Manual research scan: reads public pages from the Tranco top-sites list and
+# records AI-assistant links that carry pre-filled prompts. Results are kept
+# as a private workflow artifact until they have been checked by hand.
+on:
+  workflow_dispatch:
+    inputs:
+      sites:
+        description: "Number of sites to scan"
+        default: "200"
+      offset:
+        description: "Start at this rank (0 = the top)"
+        default: "0"
+      pages_per_site:
+        description: "Article pages to read per site, besides the homepage"
+        default: "2"
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 340
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Download the Tranco top-sites list
+        run: |
+          curl -fsSL -o tranco.zip "https://tranco-list.eu/top-1m.csv.zip"
+          unzip -o tranco.zip
+          head -3 top-1m.csv
+      - name: Scan
+        run: >
+          python research/scan.py --tranco top-1m.csv
+          --sites "${{ inputs.sites }}" --offset "${{ inputs.offset }}"
+          --pages-per-site "${{ inputs.pages_per_site }}"
+          --out results.jsonl
+      - name: Summarise
+        run: |
+          python research/summarize.py results.jsonl | tee summary.md
+          cat summary.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: scan-${{ inputs.sites }}-from-${{ inputs.offset }}
+          path: |
+            results.jsonl
+            summary.md
+          retention-days: 30

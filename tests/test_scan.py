@@ -1,0 +1,80 @@
+"""research/scan.py against local fake sites (no internet needed)."""
+
+import json
+import os
+import sys
+import tempfile
+import threading
+import unittest
+from http.server import ThreadingHTTPServer
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path[:0] = [ROOT, os.path.join(ROOT, "research")]
+
+import scan  # noqa: E402
+import test_sites  # noqa: E402
+
+
+class ScanFakeSites(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        scan.PAGE_PAUSE = 0
+        cls.servers, cls.ports = [], {}
+        for key, pages in test_sites.SITES.items():
+            s = ThreadingHTTPServer(("127.0.0.1", 0), test_sites.handler_for(pages))
+            threading.Thread(target=s.serve_forever, daemon=True).start()
+            cls.servers.append(s)
+            cls.ports[key] = s.server_port
+        test_sites.LOG.clear()
+        with tempfile.TemporaryDirectory() as d:
+            sites = os.path.join(d, "sites.txt")
+            out = os.path.join(d, "out.jsonl")
+            with open(sites, "w") as fh:
+                for key in sorted(cls.ports):
+                    fh.write(f"http://127.0.0.1:{cls.ports[key]}\n")
+                fh.write("http://127.0.0.1:1\n")  # nothing listens here
+            scan.main(["--urls", sites, "--sites", "20", "--out", out, "--workers", "4"])
+            with open(out, encoding="utf-8") as fh:
+                cls.results = {r["site"]: r for r in map(json.loads, fh)}
+
+    @classmethod
+    def tearDownClass(cls):
+        for s in cls.servers:
+            s.shutdown()
+            s.server_close()
+
+    def site(self, key):
+        return self.results[f"http://127.0.0.1:{self.ports[key]}"]
+
+    def verdicts(self, key):
+        return sorted(a["verdict"] for p in self.site(key)["pages"] for a in p["ai_links"])
+
+    def test_finds_poisoned_button_on_article_page(self):
+        self.assertEqual(self.verdicts(8801), ["DANGEROUS", "LOOKS_SAFE"])
+
+    def test_respects_robots_disallow_all(self):
+        self.assertEqual(self.site(8802)["status"], "robots_disallowed")
+        port = self.ports[8802]
+        requested = [l.split(" ")[0] for l in test_sites.LOG if l.startswith(f"{port}/")]
+        self.assertEqual(requested, [f"{port}/robots.txt"])
+
+    def test_respects_robots_disallowed_path(self):
+        port = self.ports[8801]
+        self.assertFalse(any(l.startswith(f"{port}/private") for l in test_sites.LOG))
+
+    def test_finds_escaped_url_in_inline_script(self):
+        self.assertEqual(self.verdicts(8803), ["DANGEROUS"])
+
+    def test_non_html_and_missing_robots(self):
+        self.assertTrue(self.site(8804)["status"].startswith("no_html"))
+        self.assertEqual(self.verdicts(8805), ["LOOKS_SAFE"])
+
+    def test_unreachable_site(self):
+        self.assertEqual(self.results["http://127.0.0.1:1"]["status"], "unreachable")
+
+    def test_identifies_itself(self):
+        self.assertTrue(test_sites.LOG and all("UA=promptlink-research" in l for l in test_sites.LOG))
+
+
+if __name__ == "__main__":
+    unittest.main()

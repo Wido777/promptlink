@@ -485,7 +485,8 @@ def extract_links(html: str) -> list[str]:
     import html as html_mod
     links = [html_mod.unescape(m.group(2)) for m in HREF.finditer(html)]
     # Also catch bare URLs in scripts, onclick handlers and plain-text emails.
-    links += [u for u in URL_IN_TEXT.findall(html) if u not in links]
+    in_attrs = set(links)
+    links += [u for u in URL_IN_TEXT.findall(html) if u not in in_attrs]
     out, seen = [], set()
     for link in links:
         link = link.strip()
