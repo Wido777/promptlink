@@ -43,6 +43,15 @@ jobs:
         run: |
           python research/summarize.py results.jsonl | tee summary.md
           cat summary.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Publish summary as annotations (readable through the API)
+        run: |
+          python - <<'EOF'
+          text = open("summary.md", encoding="utf-8").read()
+          chunks = [text[i:i + 3500] for i in range(0, len(text), 3500)][:9]
+          for n, chunk in enumerate(chunks, 1):
+              esc = chunk.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+              print(f"::notice title=scan summary part {n}/{len(chunks)}::{esc}")
+          EOF
       - uses: actions/upload-artifact@v4
         with:
           name: scan-${{ inputs.sites }}-from-${{ inputs.offset }}
