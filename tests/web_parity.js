@@ -10,6 +10,7 @@ process.stdin.on("data", (d) => (input += d));
 process.stdin.on("end", () => {
   const cases = JSON.parse(input);
   const out = cases.map((c) =>
-    c.kind === "html" ? pl.scanHtml(c.value) : c.kind === "chunks" ? page.scanChunks(c.value) : pl.checkUrl(c.value));
+    c.kind === "html" ? pl.scanHtml(c.value) : c.kind === "chunks" ? page.scanChunks(c.value)
+      : c.kind === "page-html" ? page.extractChunks(c.value) : pl.checkUrl(c.value));
   process.stdout.write(JSON.stringify(out));
 });

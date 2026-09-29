@@ -36,8 +36,8 @@ HIDDEN_STYLE = (
     (re.compile(r"(?:left|top|right|text-indent|margin-left)\s*:\s*-\d{3,}"), "moved off-screen"),
     (re.compile(r"clip\s*:\s*rect\(\s*0"), "clipped away"),
     (re.compile(r"clip-path\s*:\s*inset\(\s*(?:50|100)%"), "clipped away"),
-    (re.compile(r"(?<![\w-])(?:height|max-height)\s*:\s*0(?:px)?\s*(?:;|$|!)[^\"]*overflow\s*:\s*hidden|"
-                r"overflow\s*:\s*hidden[^\"]*(?<![\w-])(?:height|max-height)\s*:\s*0(?:px)?\s*(?:;|$|!)"), "zero height"),
+    (re.compile(r'(?<![\w-])(?:height|max-height)\s*:\s*0(?:px)?\s*(?:;|$|!)[^"]*overflow\s*:\s*hidden|'
+                r'overflow\s*:\s*hidden[^"]*(?<![\w-])(?:height|max-height)\s*:\s*0(?:px)?\s*(?:;|$|!)'), "zero height"),
     (re.compile(r"transform\s*:\s*scale\(\s*0(?:\.0+)?\s*\)"), "scaled to zero"),
 )
 WHITE = r"(?:#fff(?:fff)?\b|white\b|rgb\(\s*255\s*,\s*255\s*,\s*255\s*\))"

@@ -292,6 +292,127 @@
    "u-visually-hidden",
    "visually-hidden",
    "visuallyhidden"
+  ],
+  "hiddenStyle": [
+   [
+    "display\\s*:\\s*none",
+    "display:none"
+   ],
+   [
+    "visibility\\s*:\\s*(?:hidden|collapse)",
+    "visibility:hidden"
+   ],
+   [
+    "(?<![\\p{L}\\p{N}_-])opacity\\s*:\\s*0*(?:\\.0+)?\\s*(?:;|$|!)",
+    "opacity:0"
+   ],
+   [
+    "font-size\\s*:\\s*(?:0|0?\\.\\d+|1)(?:px|pt|em|rem|%)?\\s*(?:;|$|!)",
+    "font-size:0"
+   ],
+   [
+    "(?<![\\p{L}\\p{N}_-])color\\s*:\\s*transparent",
+    "transparent text"
+   ],
+   [
+    "(?:left|top|right|text-indent|margin-left)\\s*:\\s*-\\d{3,}",
+    "moved off-screen"
+   ],
+   [
+    "clip\\s*:\\s*rect\\(\\s*0",
+    "clipped away"
+   ],
+   [
+    "clip-path\\s*:\\s*inset\\(\\s*(?:50|100)%",
+    "clipped away"
+   ],
+   [
+    "(?<![\\p{L}\\p{N}_-])(?:height|max-height)\\s*:\\s*0(?:px)?\\s*(?:;|$|!)[^\"]*overflow\\s*:\\s*hidden|overflow\\s*:\\s*hidden[^\"]*(?<![\\p{L}\\p{N}_-])(?:height|max-height)\\s*:\\s*0(?:px)?\\s*(?:;|$|!)",
+    "zero height"
+   ],
+   [
+    "transform\\s*:\\s*scale\\(\\s*0(?:\\.0+)?\\s*\\)",
+    "scaled to zero"
+   ]
+  ],
+  "sameColour": [
+   "(?<![\\p{L}\\p{N}_-])color\\s*:\\s*(?:#fff(?:fff)?(?:(?<=[\\p{L}\\p{N}_])(?![\\p{L}\\p{N}_])|(?<![\\p{L}\\p{N}_])(?=[\\p{L}\\p{N}_]))|white(?:(?<=[\\p{L}\\p{N}_])(?![\\p{L}\\p{N}_])|(?<![\\p{L}\\p{N}_])(?=[\\p{L}\\p{N}_]))|rgb\\(\\s*255\\s*,\\s*255\\s*,\\s*255\\s*\\)).*background(?:-color)?\\s*:\\s*(?:#fff(?:fff)?(?:(?<=[\\p{L}\\p{N}_])(?![\\p{L}\\p{N}_])|(?<![\\p{L}\\p{N}_])(?=[\\p{L}\\p{N}_]))|white(?:(?<=[\\p{L}\\p{N}_])(?![\\p{L}\\p{N}_])|(?<![\\p{L}\\p{N}_])(?=[\\p{L}\\p{N}_]))|rgb\\(\\s*255\\s*,\\s*255\\s*,\\s*255\\s*\\))|background(?:-color)?\\s*:\\s*(?:#fff(?:fff)?(?:(?<=[\\p{L}\\p{N}_])(?![\\p{L}\\p{N}_])|(?<![\\p{L}\\p{N}_])(?=[\\p{L}\\p{N}_]))|white(?:(?<=[\\p{L}\\p{N}_])(?![\\p{L}\\p{N}_])|(?<![\\p{L}\\p{N}_])(?=[\\p{L}\\p{N}_]))|rgb\\(\\s*255\\s*,\\s*255\\s*,\\s*255\\s*\\)).*(?<![\\p{L}\\p{N}_-])color\\s*:\\s*(?:#fff(?:fff)?(?:(?<=[\\p{L}\\p{N}_])(?![\\p{L}\\p{N}_])|(?<![\\p{L}\\p{N}_])(?=[\\p{L}\\p{N}_]))|white(?:(?<=[\\p{L}\\p{N}_])(?![\\p{L}\\p{N}_])|(?<![\\p{L}\\p{N}_])(?=[\\p{L}\\p{N}_]))|rgb\\(\\s*255\\s*,\\s*255\\s*,\\s*255\\s*\\))",
+   "(?<![\\p{L}\\p{N}_-])color\\s*:\\s*(?:#000(?:000)?(?:(?<=[\\p{L}\\p{N}_])(?![\\p{L}\\p{N}_])|(?<![\\p{L}\\p{N}_])(?=[\\p{L}\\p{N}_]))|black(?:(?<=[\\p{L}\\p{N}_])(?![\\p{L}\\p{N}_])|(?<![\\p{L}\\p{N}_])(?=[\\p{L}\\p{N}_]))|rgb\\(\\s*0\\s*,\\s*0\\s*,\\s*0\\s*\\)).*background(?:-color)?\\s*:\\s*(?:#000(?:000)?(?:(?<=[\\p{L}\\p{N}_])(?![\\p{L}\\p{N}_])|(?<![\\p{L}\\p{N}_])(?=[\\p{L}\\p{N}_]))|black(?:(?<=[\\p{L}\\p{N}_])(?![\\p{L}\\p{N}_])|(?<![\\p{L}\\p{N}_])(?=[\\p{L}\\p{N}_]))|rgb\\(\\s*0\\s*,\\s*0\\s*,\\s*0\\s*\\))|background(?:-color)?\\s*:\\s*(?:#000(?:000)?(?:(?<=[\\p{L}\\p{N}_])(?![\\p{L}\\p{N}_])|(?<![\\p{L}\\p{N}_])(?=[\\p{L}\\p{N}_]))|black(?:(?<=[\\p{L}\\p{N}_])(?![\\p{L}\\p{N}_])|(?<![\\p{L}\\p{N}_])(?=[\\p{L}\\p{N}_]))|rgb\\(\\s*0\\s*,\\s*0\\s*,\\s*0\\s*\\)).*(?<![\\p{L}\\p{N}_-])color\\s*:\\s*(?:#000(?:000)?(?:(?<=[\\p{L}\\p{N}_])(?![\\p{L}\\p{N}_])|(?<![\\p{L}\\p{N}_])(?=[\\p{L}\\p{N}_]))|black(?:(?<=[\\p{L}\\p{N}_])(?![\\p{L}\\p{N}_])|(?<![\\p{L}\\p{N}_])(?=[\\p{L}\\p{N}_]))|rgb\\(\\s*0\\s*,\\s*0\\s*,\\s*0\\s*\\))"
+  ],
+  "hideClasses": [
+   "d-none",
+   "display-none",
+   "hidden",
+   "hide",
+   "invisible",
+   "is-hidden"
+  ],
+  "skipTags": [
+   "canvas",
+   "iframe",
+   "math",
+   "noscript",
+   "object",
+   "option",
+   "script",
+   "select",
+   "style",
+   "svg"
+  ],
+  "voidTags": [
+   "area",
+   "base",
+   "br",
+   "col",
+   "embed",
+   "hr",
+   "img",
+   "input",
+   "link",
+   "meta",
+   "param",
+   "source",
+   "track",
+   "wbr"
+  ],
+  "blockTags": [
+   "article",
+   "aside",
+   "blockquote",
+   "body",
+   "br",
+   "button",
+   "dd",
+   "div",
+   "dl",
+   "dt",
+   "figcaption",
+   "figure",
+   "footer",
+   "form",
+   "h1",
+   "h2",
+   "h3",
+   "h4",
+   "h5",
+   "h6",
+   "header",
+   "hr",
+   "html",
+   "label",
+   "li",
+   "main",
+   "nav",
+   "ol",
+   "p",
+   "pre",
+   "section",
+   "table",
+   "td",
+   "th",
+   "title",
+   "tr",
+   "ul"
   ]
  }
 };

@@ -89,6 +89,13 @@ def build() -> dict:
             "metaNames": sorted(page.META_NAMES),
             "textAttrs": list(page.TEXT_ATTRS),
             "srClasses": sorted(page.SR_CLASSES),
+            # HTML extraction (the crawler's view of a page, for pasted page code)
+            "hiddenStyle": [[py_to_js(p.pattern), reason] for p, reason in page.HIDDEN_STYLE],
+            "sameColour": [py_to_js(p.pattern) for p in page.SAME_COLOUR],
+            "hideClasses": sorted(page.HIDE_CLASSES),
+            "skipTags": sorted(page.SKIP_TAGS),
+            "voidTags": sorted(page.VOID_TAGS),
+            "blockTags": sorted(page.BLOCK_TAGS),
         },
     }
 
