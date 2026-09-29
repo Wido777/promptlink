@@ -1,9 +1,13 @@
 """Scan many websites for AI-assistant links that carry hidden prompts.
 
 For each site: check robots.txt, fetch the homepage, pick a few article pages
-linked from it, and run promptlink over every AI-assistant link found (in
-links, buttons, and URLs inside scripts). Nothing is clicked, submitted or
-executed; pages are read the way a search engine reads them.
+linked from it, and run promptlink over
+  - every AI-assistant link found (links, buttons, URLs inside scripts), and
+  - the page content itself: hidden text, comments, alt text, meta tags and
+    structured data that speak to an AI and give it orders.
+It also reads /llms.txt, a file some sites publish for AI to read.
+Nothing is clicked, submitted or executed; pages are read the way a search
+engine reads them.
 
     python research/scan.py --tranco top-1m.csv --sites 200 --out results.jsonl
     python research/scan.py --urls sites.txt --out results.jsonl
@@ -35,6 +39,7 @@ from urllib.request import Request, build_opener, HTTPRedirectHandler
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 from promptlink import __version__  # noqa: E402
 from promptlink.detector import scan_html, ASSISTANT_HOSTS, PATH_ASSISTANTS  # noqa: E402
+from promptlink.page import scan_page_content, scan_text_file  # noqa: E402
 
 USER_AGENT = ("promptlink-research/%s (+https://github.com/Wido777/promptlink; "
               "reads public pages to measure AI memory-poisoning links)" % __version__)
@@ -57,14 +62,17 @@ class _NoRedirectOffsite(HTTPRedirectHandler):
 _opener = build_opener(_NoRedirectOffsite)
 
 
-def fetch(url: str) -> tuple[int, str, str]:
-    """Return (status, final_url, text). Text is empty for non-HTML or errors."""
-    req = Request(url, headers={"User-Agent": USER_AGENT, "Accept": "text/html,application/xhtml+xml",
+def fetch(url: str, want: str = "html") -> tuple[int, str, str]:
+    """Return (status, final_url, text). Text is empty for the wrong content type or errors."""
+    accept = "text/html,application/xhtml+xml" if want == "html" else "text/plain,text/markdown"
+    req = Request(url, headers={"User-Agent": USER_AGENT, "Accept": accept,
                                 "Accept-Encoding": "gzip, deflate", "Accept-Language": "en;q=0.9,*;q=0.5"})
     try:
         with _opener.open(req, timeout=TIMEOUT) as r:
             ctype = r.headers.get("Content-Type", "")
-            if "html" not in ctype.lower():
+            if want == "html" and "html" not in ctype.lower():
+                return r.status, r.geturl(), ""
+            if want == "text" and not any(t in ctype.lower() for t in ("text/plain", "markdown")):
                 return r.status, r.geturl(), ""
             raw = r.read(MAX_BYTES + 1)[:MAX_BYTES]
             enc = (r.headers.get("Content-Encoding") or "").lower()
@@ -139,9 +147,19 @@ def summarise_report(rep) -> dict:
             "wrapped": len(rep.unwrapped_from)}
 
 
+def summarise_content(rep) -> dict:
+    return {"verdict": rep.verdict, "chunks": rep.chunks, "hidden_chunks": rep.hidden_chunks,
+            "findings": [{"verdict": f.verdict, "where": f.where, "how": f.how, "tag": f.tag,
+                          "rules": [x.rule for x in f.findings], "text": f.text[:600]}
+                         for f in rep.findings[:20]]}
+
+
 def scan_page(url: str, html: str) -> dict:
     page = {"url": url, "ai_links": []}
-    if not html or not mentions_assistant(html):
+    if not html:
+        return page
+    page["content"] = summarise_content(scan_page_content(html))
+    if not mentions_assistant(html):
         return page
     seen = set()
     for rep in scan_html(prepare(html)):
@@ -174,6 +192,12 @@ def scan_site(domain: str, pages_per_site: int) -> dict:
         site["status"] = f"no_html:{status}"
         return site
     site["pages"].append(scan_page(final, html))
+    llms = urljoin(final, "/llms.txt")
+    if rp.can_fetch(USER_AGENT, llms):
+        time.sleep(PAGE_PAUSE)
+        s, _, text = fetch(llms, want="text")
+        if s == 200 and text.strip() and not text.lstrip().startswith("<"):
+            site["llms_txt"] = summarise_content(scan_text_file(text))
     for url in article_links(final, html, pages_per_site):
         if not rp.can_fetch(USER_AGENT, url):
             continue
@@ -192,6 +216,10 @@ def load_sites(args) -> list[str]:
     else:
         with open(args.tranco, encoding="utf-8") as fh:
             sites = [row[1].strip() for row in csv.reader(fh) if len(row) >= 2]
+    if args.random:
+        import random
+        pool = sites[: args.random_from] if args.random_from else sites
+        return random.Random(args.seed).sample(pool, min(args.sites, len(pool)))
     return sites[args.offset: args.offset + args.sites]
 
 
@@ -202,6 +230,9 @@ def main(argv=None) -> int:
     src.add_argument("--urls", help="text file with one domain (or host:port) per line")
     ap.add_argument("--sites", type=int, default=200)
     ap.add_argument("--offset", type=int, default=0)
+    ap.add_argument("--random", action="store_true", help="draw a random sample instead of the top ranks")
+    ap.add_argument("--random-from", type=int, default=0, help="sample only from the top N ranks (0 = whole list)")
+    ap.add_argument("--seed", type=int, default=1, help="random seed, so a sample can be repeated")
     ap.add_argument("--pages-per-site", type=int, default=2)
     ap.add_argument("--workers", type=int, default=24, help="sites scanned in parallel (one request at a time per site)")
     ap.add_argument("--out", required=True)

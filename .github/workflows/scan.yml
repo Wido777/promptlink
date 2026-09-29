@@ -1,8 +1,10 @@
 name: scan
 
 # Manual research scan: reads public pages from the Tranco top-sites list and
-# records AI-assistant links that carry pre-filled prompts. Results are kept
-# as a private workflow artifact until they have been checked by hand.
+# records (1) AI-assistant links that carry pre-filled prompts and (2) text in
+# the page content that speaks to AI and gives it orders. The run summary
+# holds counts only; the raw results (which name sites) stay in a short-lived
+# artifact until flagged items have been checked by hand.
 on:
   workflow_dispatch:
     inputs:
@@ -10,8 +12,17 @@ on:
         description: "Number of sites to scan"
         default: "200"
       offset:
-        description: "Start at this rank (0 = the top)"
+        description: "Start at this rank (0 = the top); ignored for random samples"
         default: "0"
+      sample:
+        description: "top = consecutive ranks from the offset; random = random draw"
+        default: "random"
+      random_from:
+        description: "Random draw from the top N ranks (0 = the whole top million)"
+        default: "0"
+      seed:
+        description: "Random seed (same seed = same sites)"
+        default: "1"
       pages_per_site:
         description: "Article pages to read per site, besides the homepage"
         default: "2"
@@ -38,6 +49,7 @@ jobs:
           python research/scan.py --tranco top-1m.csv
           --sites "${{ inputs.sites }}" --offset "${{ inputs.offset }}"
           --pages-per-site "${{ inputs.pages_per_site }}"
+          ${{ inputs.sample == 'random' && format('--random --random-from {0} --seed {1}', inputs.random_from, inputs.seed) || '' }}
           --out results.jsonl
       - name: Summarise
         run: |
@@ -54,8 +66,8 @@ jobs:
           EOF
       - uses: actions/upload-artifact@v4
         with:
-          name: scan-${{ inputs.sites }}-from-${{ inputs.offset }}
+          name: scan-${{ inputs.sample }}-${{ inputs.sites }}-seed${{ inputs.seed }}-from${{ inputs.offset }}
           path: |
             results.jsonl
             summary.md
-          retention-days: 30
+          retention-days: 7

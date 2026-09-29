@@ -69,6 +69,18 @@ class ScanFakeSites(unittest.TestCase):
         self.assertTrue(self.site(8804)["status"].startswith("no_html"))
         self.assertEqual(self.verdicts(8805), ["LOOKS_SAFE"])
 
+    def test_finds_hidden_instructions_in_page_content(self):
+        home = self.site(8806)["pages"][0]["content"]
+        self.assertEqual(home["verdict"], "DANGEROUS")
+        self.assertEqual([f["how"] for f in home["findings"]], ["display:none"])
+        self.assertEqual(self.site(8806)["llms_txt"]["verdict"], "SUSPICIOUS")
+
+    def test_clean_pages_have_clean_content(self):
+        for key in (8801, 8803, 8805):
+            for p in self.site(key)["pages"]:
+                self.assertEqual(p["content"]["verdict"], "LOOKS_SAFE", key)
+        self.assertNotIn("llms_txt", self.site(8805))   # 404 is not an llms.txt
+
     def test_unreachable_site(self):
         self.assertEqual(self.results["http://127.0.0.1:1"]["status"], "unreachable")
 
