@@ -20,13 +20,33 @@
   };
 
   var VERDICT = {
-    DANGEROUS: ["Dangerous", "This link tries to change what your assistant remembers or does. Don't open it."],
-    SUSPICIOUS: ["Suspicious", "Read the decoded prompt below before you decide to open it."],
-    LOOKS_SAFE: ["No known tricks", "No rule matched. Still read the prompt: this is a first filter, not a guarantee."],
-    NO_PROMPT: ["No hidden prompt", "This link opens an assistant with nothing pre-filled."],
-    NOT_ASSISTANT_LINK: ["Not an AI link", "It doesn't open a known assistant, and no assistant link is wrapped inside it."],
+    DANGEROUS: ["Dangerous", "Don't open this link. It hides instructions aimed at your AI."],
+    SUSPICIOUS: ["Suspicious", "Read what it asks your AI below before you open it."],
+    LOOKS_SAFE: ["No tricks found", "It only asks what you see below. Still worth a quick read."],
+    NO_PROMPT: ["Nothing hidden", "This link opens an assistant with nothing pre-filled."],
+    NOT_ASSISTANT_LINK: ["Not an AI link", "It doesn't open ChatGPT, Claude or another assistant promptlink knows."],
     SKIPPED: ["Skipped", "This line doesn't look like a link."]
   };
+
+  // Plain-language description of what a link tries to do, from its findings.
+  var PLAIN = [
+    ["memory", "Tells your AI to remember something for future chats"],
+    ["trust", "Promotes a brand or site as trusted, expert or the best"],
+    ["override", "Tries to override your AI's own instructions or act secretly"],
+    ["exfiltration", "Tries to send your data to another website"],
+    ["HID-001", "Hides text using invisible characters"],
+    ["ENC-001", "Hides an instruction in encoded (base64) text"],
+    ["ENC-002", "Encodes the prompt twice so it's harder to read"]
+  ];
+  function plainFindings(rep) {
+    var cats = {}, rules = {};
+    (rep.findings || []).forEach(function (f) { cats[f.category] = true; rules[f.rule] = true; });
+    var out = [];
+    PLAIN.forEach(function (p) { if (cats[p[0]] || rules[p[0]]) out.push(p[1]); });
+    if (rep.unwrapped_from && rep.unwrapped_from.length) out.push("Hides its real destination inside another link");
+    if (!out.length && (cats["memory-weak"] || cats["trust-weak"])) out.push("Uses wording often found in memory or promotion tricks");
+    return out;
+  }
   var SHORT = { "ZERO WIDTH SPACE": "ZWSP", "ZERO WIDTH NON-JOINER": "ZWNJ", "ZERO WIDTH JOINER": "ZWJ",
                 "WORD JOINER": "WJ", "ZERO WIDTH NO-BREAK SPACE": "BOM", "SOFT HYPHEN": "SHY" };
   var STRONG = { memory: 1, trust: 1, override: 1, exfiltration: 1 };
@@ -178,28 +198,78 @@
     return dl;
   }
 
-  function section(title, content) {
-    var s = el("div", "sec");
-    s.appendChild(el("span", "label", title));
-    content.forEach(function (c) { if (c) s.appendChild(c); });
-    return s;
-  }
-
   function report(rep, opts) {
     var box = el("article", "report sev-" + rep.verdict);
-    var v = el("div", "verdict"), head = el("div");
-    var h = el("h2", null, VERDICT[rep.verdict][0]);
-    if (opts.example) h.appendChild(el("span", "tag", "Example"));
-    head.appendChild(h);
-    head.appendChild(el("p", null, VERDICT[rep.verdict][1]));
-    v.appendChild(head);
-    var gauge = null;
-    if (rep.verdict === "DANGEROUS" || rep.verdict === "SUSPICIOUS" || rep.verdict === "LOOKS_SAFE") {
-      gauge = meter(rep.score);
-      v.appendChild(gauge.node);
-    }
+
+    // 1. Verdict in plain words
+    var v = el("div", "verdict"), top = el("div", "verdict-top");
+    top.appendChild(el("h2", null, VERDICT[rep.verdict][0]));
+    if (opts.example) top.appendChild(el("span", "tag", "Example"));
+    v.appendChild(top);
+    v.appendChild(el("p", null, VERDICT[rep.verdict][1]));
+    var chips = el("div", "chips");
+    if (rep.assistant) { var c1 = el("span", "chip", "Opens "); c1.appendChild(el("b", null, rep.assistant)); chips.appendChild(c1); }
+    (rep.unwrapped_from || []).slice(0, 1).forEach(function (w) {
+      var c2 = el("span", "chip", "Hidden inside ");
+      c2.appendChild(el("b", null, w.replace(/^https?:\/\//, "").split(/[/?#]/)[0]));
+      chips.appendChild(c2);
+    });
+    if (chips.childNodes.length) v.appendChild(chips);
     box.appendChild(v);
 
+    // 2. What it tries to do
+    var bullets = (rep.verdict === "DANGEROUS" || rep.verdict === "SUSPICIOUS") ? plainFindings(rep) : [];
+    if (bullets.length) {
+      var s1 = el("div", "sec"), ul = el("ul", "does");
+      s1.appendChild(el("h3", null, "What it tries to do"));
+      bullets.forEach(function (t) { ul.appendChild(el("li", null, t)); });
+      s1.appendChild(ul);
+      box.appendChild(s1);
+    }
+
+    // 3. The decoded prompt
+    var promptNode = null;
+    if (rep.prompt !== null && rep.prompt !== undefined) {
+      var s2 = el("div", "sec");
+      s2.appendChild(el("h3", null, "What your AI would be told"));
+      var rp = renderPrompt(rep.prompt, rep.findings || []);
+      promptNode = rp.node;
+      s2.appendChild(rp.node);
+      var hasHidden = /[\u200b\u200c\u200d\u2060\ufeff\u00ad\u202a-\u202e\u2066-\u2069]|[\u{E0000}-\u{E007F}]/u.test(rep.prompt);
+      if (rp.marked || hasHidden) {
+        var legend = el("div", "legend");
+        if (rp.marked) { var a1 = el("span"); a1.appendChild(el("i", "sw")); a1.appendChild(document.createTextNode("The hidden instruction")); legend.appendChild(a1); }
+        if (hasHidden) { var b1 = el("span"); b1.appendChild(el("span", "hidchip", "ZWSP")); b1.appendChild(document.createTextNode("Invisible character, made visible")); legend.appendChild(b1); }
+        s2.appendChild(legend);
+      }
+      box.appendChild(s2);
+    }
+
+    // 4. What to do, only when it matters
+    if (rep.verdict === "DANGEROUS" || rep.verdict === "SUSPICIOUS") {
+      var s3 = el("div", "sec advice"), al = el("ul");
+      s3.appendChild(el("h3", null, "What to do"));
+      var l1 = el("li"); l1.appendChild(el("strong", null, "Want the summary anyway? ")); l1.appendChild(document.createTextNode("Paste the article's address into a new chat yourself.")); al.appendChild(l1);
+      var l2 = el("li"); l2.appendChild(el("strong", null, "Already clicked it? ")); l2.appendChild(document.createTextNode("Open your AI's memory or personalization settings and delete anything you didn't add.")); al.appendChild(l2);
+      s3.appendChild(al);
+      box.appendChild(s3);
+    }
+
+    // 5. Technical details, folded away
+    var tech = el("details", "tech"), sum = el("summary");
+    var cats = {};
+    (rep.findings || []).forEach(function (f) { cats[f.category] = true; });
+    var shown = (rep.findings || []).filter(function (f) {
+      return !((f.category === "memory-weak" && cats.memory) || (f.category === "trust-weak" && cats.trust));
+    });
+    var scored = rep.verdict === "DANGEROUS" || rep.verdict === "SUSPICIOUS" || rep.verdict === "LOOKS_SAFE";
+    var left = el("span", null, "Technical details");
+    var right = el("span", "sum", scored ? "score " + rep.score + " \u00b7 " + shown.length + (shown.length === 1 ? " rule" : " rules") : "raw link");
+    right.appendChild(el("span", "chev", "\u203a"));
+    sum.appendChild(left); sum.appendChild(right);
+    tech.appendChild(sum);
+    var body = el("div", "tech-body"), gauge = null;
+    if (scored) { gauge = meter(rep.score); body.appendChild(gauge.node); }
     var rows = [];
     if (rep.assistant) rows.push(["Opens", rep.assistant]);
     if (rep.param) rows.push(["Prompt parameter", rep.param + "=", "m p"]);
@@ -207,35 +277,12 @@
       rows.push([i === 0 ? "Hidden inside" : "Also inside", w.replace(/^https?:\/\//, "").split(/[/?#]/)[0], "m"]);
     });
     if (rep.prompt) rows.push(["Prompt length", Array.from(rep.prompt).length + " characters"]);
-    var raw = el("details", "raw");
-    raw.appendChild(el("summary", null, "Raw link"));
-    raw.appendChild(el("pre", "well small", rep.url));
-    box.appendChild(section(rep.verdict === "SKIPPED" ? "Input" : "The link", [rows.length ? spec(rows) : null, raw]));
-
-    var promptNode = null;
-    if (rep.prompt !== null && rep.prompt !== undefined) {
-      var rp = renderPrompt(rep.prompt, rep.findings || []);
-      promptNode = rp.node;
-      var hasHidden = /[​‌‍⁠﻿­‪-‮⁦-⁩]|[\u{E0000}-\u{E007F}]/u.test(rep.prompt);
-      var legend = null;
-      if (rp.marked || hasHidden) {
-        legend = el("div", "legend");
-        if (rp.marked) { var a = el("span"); a.appendChild(el("i", "sw")); a.appendChild(document.createTextNode("Instruction the rules flagged")); legend.appendChild(a); }
-        if (hasHidden) { var b = el("span"); b.appendChild(el("span", "hidchip", "ZWSP")); b.appendChild(document.createTextNode("Invisible character, made visible")); legend.appendChild(b); }
-      }
-      box.appendChild(section("What your assistant would be told", [rp.node, legend]));
-    }
-
-    var cats = {};
-    (rep.findings || []).forEach(function (f) { cats[f.category] = true; });
-    var shown = (rep.findings || []).filter(function (f) {
-      return !((f.category === "memory-weak" && cats.memory) || (f.category === "trust-weak" && cats.trust));
-    });
+    if (rows.length) body.appendChild(spec(rows));
     if (shown.length) {
       var wrap = el("div", "tbl"), t = el("table"), thead = el("thead"), hr = el("tr");
       hr.appendChild(el("th", null, "Rule")); hr.appendChild(el("th", null, "Signal")); hr.appendChild(el("th", "w", "Points"));
       thead.appendChild(hr); t.appendChild(thead);
-      var tb = el("tbody"), sum = 0;
+      var tb = el("tbody"), total = 0;
       shown.forEach(function (f) {
         var tr = el("tr");
         tr.appendChild(el("td", "id", f.rule));
@@ -244,27 +291,29 @@
         tr.appendChild(td);
         tr.appendChild(el("td", "w", "+" + f.weight));
         tb.appendChild(tr);
-        sum += f.weight;
+        total += f.weight;
       });
-      if (rep.score > sum) {
+      if (rep.score > total) {
         var br = el("tr");
         br.appendChild(el("td", "id", "COMBO"));
         br.appendChild(el("td", null, cats.exfiltration ? "Tries to move your data out" : "Several kinds of manipulation together"));
-        br.appendChild(el("td", "w", "+" + (rep.score - sum)));
+        br.appendChild(el("td", "w", "+" + (rep.score - total)));
         tb.appendChild(br);
       }
       var tot = el("tr", "total");
       tot.appendChild(el("td")); tot.appendChild(el("td", null, "Total")); tot.appendChild(el("td", "w", String(rep.score)));
       tb.appendChild(tot);
       t.appendChild(tb); wrap.appendChild(t);
-      box.appendChild(section("Why", [wrap]));
+      body.appendChild(wrap);
     }
-
     if (rep.notes && rep.notes.length) {
-      var ul = el("ul", "notes");
-      rep.notes.forEach(function (n) { ul.appendChild(el("li", null, n)); });
-      box.appendChild(section("Notes", [ul]));
+      var nl = el("ul", "notes");
+      rep.notes.forEach(function (n) { nl.appendChild(el("li", null, n)); });
+      body.appendChild(nl);
     }
+    body.appendChild(el("pre", "well small", rep.url));
+    tech.appendChild(body);
+    box.appendChild(tech);
     return { node: box, gauge: gauge, prompt: promptNode };
   }
 
@@ -306,7 +355,7 @@
   function render(opts) {
     var text = input.value.trim();
     results.textContent = "";
-    if (!text) { results.appendChild(el("p", "empty", "Paste a link on the left, or pick an example, and the report appears here.")); input.focus(); return; }
+    if (!text) { results.appendChild(el("p", "empty", "Paste a link, or try an example, and the result appears here.")); input.focus(); return; }
     var reps;
     if (looksLikeHtml(text)) {
       reps = pl.scanHtml(text);
