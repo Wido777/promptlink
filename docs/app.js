@@ -413,7 +413,7 @@
   var names = {};
   Object.keys(RULES.assistantHosts).forEach(function (h) { names[RULES.assistantHosts[h].replace(/ \(on X\)$/, "")] = 1; });
   RULES.pathAssistants.forEach(function (a) { names[a.name.replace(/ \(on X\)$/, "")] = 1; });
-  $("n-assist").textContent = String(Object.keys(names).length);
+  if ($("n-assist")) $("n-assist").textContent = String(Object.keys(names).length);
 
   // Copy buttons for the command-line snippets.
   Array.prototype.forEach.call(document.querySelectorAll(".copy"), function (btn) {
@@ -434,7 +434,9 @@
   var onScroll = function () { bar.classList.toggle("scrolled", window.scrollY > 8); };
   window.addEventListener("scroll", onScroll, { passive: true }); onScroll();
 
-  // Open in a working state: the real WordPress plugin template, decoded.
-  input.value = EXAMPLES.real; grow(); setPressed("real");
+  // Open in a working state: show the real WordPress plugin template decoded,
+  // labelled as an example, while the input stays empty and inviting.
+  input.value = EXAMPLES.real;
   run({ example: true });
+  input.value = ""; grow();
 })();
