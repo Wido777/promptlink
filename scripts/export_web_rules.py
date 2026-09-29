@@ -24,6 +24,7 @@ sys.path.insert(0, ROOT)
 
 from promptlink import __version__  # noqa: E402
 from promptlink import detector  # noqa: E402
+from promptlink import page  # noqa: E402
 
 OUT = os.path.join(ROOT, "docs", "rules.js")
 
@@ -77,6 +78,17 @@ def build() -> dict:
              "description": r.description, "patterns": [py_to_js(p) for p in r.patterns]}
             for r in detector.RULES
         ],
+        # Page-content scanner (promptlink/page.py): used by docs/page.js and the extension.
+        "page": {
+            "address": py_to_js(page.ADDRESS.pattern),
+            "instruct": py_to_js(page.INSTRUCT.pattern),
+            "quick": py_to_js(page.QUICK.pattern),
+            "hiddenWhere": sorted(page.HIDDEN_WHERE),
+            "whereText": page.WHERE_TEXT,
+            "metaNames": sorted(page.META_NAMES),
+            "textAttrs": list(page.TEXT_ATTRS),
+            "srClasses": sorted(page.SR_CLASSES),
+        },
     }
 
 

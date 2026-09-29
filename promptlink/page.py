@@ -21,7 +21,7 @@ import re
 from dataclasses import dataclass, field, asdict
 from html.parser import HTMLParser
 
-from .detector import (RULES, S20, S40, S60, Finding, _decode_tags, _hidden_characters,
+from .detector import (RULES, S20, S30, S40, S60, Finding, _decode_tags, _hidden_characters,
                        _run_rules, normalise)
 
 # ---------------------------------------------------------------------------
@@ -102,7 +102,7 @@ INSTRUCT = re.compile("|".join((
     r"\b(?:respond|reply|answer|begin|start|end) (?:only )?(?:with|by saying)\b",
     r"\bsay (?:that|only|nothing)\b",
     r"\b(?:rate|score|rank|grade|review) (?:this|the|it|us|our|me|them)\b" + S40 + r"\b(?:\d|five|ten|highest|highly|top|best|excellent|positive|perfect)",
-    r"\b(?:give|write|produce|generate) (?:a |an |only )?(?:positive|glowing|favou?rable|5[- ]star|five[- ]star|perfect|excellent|good) "
+    r"\b(?:give|write|produce|generate|leave)\b" + S30 + r"\b(?:positive|glowing|favou?rable|5[- ]star|five[- ]star|perfect|excellent|good) "
     r"(?:review|rating|summary|assessment|evaluation|score|recommendation)\b",
     r"\b(?:this|the) (?:candidate|applicant|product|company|article|paper|submission|seller|vendor)\b" + S40 +
     r"\b(?:is|should be) (?:the )?(?:best|perfect|ideal|highly (?:qualified|recommended)|an? excellent|exceptional|top|strong(?:ly)?)\b",
