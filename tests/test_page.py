@@ -16,6 +16,7 @@ sys.path[:0] = [ROOT, os.path.join(ROOT, "eval"), os.path.join(ROOT, "research")
 from promptlink.page import extract_chunks, scan_page_content, scan_text_file  # noqa: E402
 from promptlink.cli import main  # noqa: E402
 import pages  # noqa: E402
+import scan_10k  # noqa: E402
 import test_sites  # noqa: E402
 
 
@@ -29,6 +30,23 @@ class LabelledPages(unittest.TestCase):
         for html, note in pages.BENIGN:
             with self.subTest(note):
                 self.assertEqual(scan_page_content(html).verdict, "LOOKS_SAFE")
+
+
+class RealScan(unittest.TestCase):
+    """Items from the 10,000-site scan, reviewed by hand (eval/scan_10k.py)."""
+
+    def test_no_false_alarms_on_real_page_content(self):
+        from promptlink.page import Chunk, analyse_chunk
+        for text, where, how, tag, note in scan_10k.CONTENT:
+            with self.subTest(note=note, text=text[:60]):
+                self.assertIsNone(analyse_chunk(Chunk(text, where, how, tag)))
+
+    def test_real_link_prompts(self):
+        from promptlink import check_url
+        for label, prompt, note in scan_10k.LINKS:
+            with self.subTest(note=note, prompt=prompt[:60]):
+                flagged = check_url("https://chatgpt.com/?q=" + quote(prompt)).verdict in ("SUSPICIOUS", "DANGEROUS")
+                self.assertEqual(flagged, label == "malicious")
 
 
 class Extraction(unittest.TestCase):

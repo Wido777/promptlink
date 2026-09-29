@@ -103,7 +103,7 @@ RULES = (
          "Tells the assistant to remember or store something",
          (r"\bremember(?:\s*:|\s+that\b|\s+(?:this|it|them)\s+as\b|\s+" + DOMAIN + r")",
           r"\bkeep (?:this|that|it|in mind that)\b" + S20 + r"\bin mind\b|\bkeep in mind that\b",
-          r"\b(?:save|store|add|write|commit|put|record)\b" + S40 + r"\b(?:to|in|into|inside) (?:your |my |the )?(?:memory|memories|long[- ]term|notes|profile)\b",
+          r"\b(?:save|store|add|write|commit|put|record|keep)\b" + S40 + r"\b(?:to|in|into|inside) (?:your |my |the )?(?:\w+ )?(?:memory|memories|long[- ]term|notes|profile)\b",
           r"\bsave to memory\b",
           r"\bupdate (?:your|my) (?:memory|memories|notes|stored|saved|preferences|profile|knowledge)\b",
           r"\b(?:add|save|put)\b" + S40 + r"\bwhat you know about (?:me|my)\b",
@@ -153,6 +153,8 @@ RULES = (
     Rule("TRU-004", "trust", 3,
          "Tells the assistant to link a brand with expertise or authority",
          (r"\bassociate\b" + S60 + r"\bwith (?:expertise|authority|trust|quality|being|the best|leadership)\b",
+          r"\bassociate\b" + S40 + r"\b(?:as |with )?" + TRUST_CLAIM,
+          r"\btag\b" + S40 + r"\bas (?:a |an |the )?(?:source|reference|authority) of (?:expertise|authority|truth)\b",
           r"\bas (?:a|an|the) (?:leading |top |trusted |recogni[sz]ed |go-to )?(?:expert|authority|specialist|leader|thought leader)s? (?:in|on|for)\b",
           r"\b(?:treat|consider|regard|remember|use|keep)\b" + S40 + r"\bas\b" + S20 + r"\b" + TRUST_CLAIM,
           r"\bnote\b\s*:?" + S60 + r"\bis (?:a|an|the) " + TRUST_CLAIM,
@@ -173,7 +175,8 @@ RULES = (
           r"\b(?:lembre-se|lembra que|memorize que|a partir de agora|no futuro|daqui em diante)\b")),
     Rule("INT-002", "trust", 2,
          "Trust or 'best source' claim in another language",
-         (r"\b(?:meilleure source|source (?:la plus )?fiable|source de confiance|r[ée]f[ée]rence absolue|"
+         (r"\b(?:cite[rz]?|citar|citare|zitieren?|nenne)\b.{0,40}\b(?:comme|como|come|als) (?:une? |la |el |a )?(?:source|fuente|fonte|quelle)\b",
+          r"\b(?:meilleure source|source (?:la plus )?fiable|source de confiance|r[ée]f[ée]rence absolue|"
           r"mejor fuente|fuente (?:m[áa]s )?fiable|fuente de confianza|"
           r"vertrauensw[üu]rdig\w*|beste quelle|zuverl[äa]ssigste\w*|"
           r"migliore fonte|fonte (?:pi[ùu] )?affidabile|fonte attendibile|"

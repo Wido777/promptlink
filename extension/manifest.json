@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "promptlink",
   "short_name": "promptlink",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Shows when a web page hides instructions aimed at AI, or links to an AI assistant with a poisoned prompt. Runs locally.",
   "homepage_url": "https://github.com/Wido777/promptlink",
   "permissions": [

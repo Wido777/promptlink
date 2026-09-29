@@ -65,6 +65,8 @@ META_NAMES = {"description", "keywords", "og:description", "og:title", "twitter:
 # ---------------------------------------------------------------------------
 # What an injection says
 # ---------------------------------------------------------------------------
+# Kept for reference: bare "agents", "assistants" and "models" matched human
+# support agents and bike models in the 10k-site scan, so ADDRESS uses AI_STRICT.
 AI_NOUN = (r"(?:ai|a\.i\.|artificial intelligence|llms?|large language models?|language models?|chat ?bots?|"
            r"ai (?:assistants?|agents?|models?|systems?|tools?|crawlers?|bots?|readers?|search engines?)|"
            r"(?:virtual |digital )?assistants?|agents?|gpt-?\d?|chatgpt|openai|claude|anthropic|gemini|bard|"
@@ -75,20 +77,20 @@ AI_STRICT = (r"(?:ai|a\.i\.|llms?|large language models?|language models?|chat ?
 
 ADDRESS = re.compile("|".join((
     # "If you are an AI / a language model / ChatGPT ..."
-    r"\b(?:if|when|since|because|as long as) you(?:'re| are| were)\s+(?:an?\s+|the\s+)?(?:\w+\s+){0,2}" + AI_NOUN + r"\b",
+    r"\b(?:if|when|since|because|as long as) you(?:'re| are| were)\s+(?:an?\s+|the\s+)?(?:\w+\s+){0,2}" + AI_STRICT + r"\b",
     r"\bas an? " + AI_STRICT + r"(?: \w+)?,? you\b",
     # "Note to AI:", "Instructions for language models:", "Attention LLMs!"
     r"\b(?:note|message|memo|instructions?|directions?|attention|important|notice|warning|reminder|hey|hello|hi|dear|psst)"
-    r"\s*(?:to|for)?\s*(?:all\s+|any\s+|the\s+)?" + AI_NOUN + r"(?:[ -]\w+)?\s*[:,!.\-—]",
+    r"\s*(?:to|for)?\s*(?:all\s+|any\s+|the\s+)?" + AI_STRICT + r"(?:[ -]\w+)?\s*[:,!.\-—]",
     # Line starting with the addressee: "AI assistants: ...", "ChatGPT, ..."
     r"(?:^|[\n.!?]\s*)(?:to\s+)?(?:all\s+|any\s+|the\s+)?" + AI_STRICT + r"\s*[:,]\s",
     # "Any AI reading this page ...", "LLMs processing this document ..."
-    r"\b(?:any|all|every|the|an?|to)?\s*" + AI_NOUN + r"\s+(?:that (?:is|are)\s+)?(?:(?:is|are)\s+)?"
+    r"\b(?:any|all|every|the|an?|to)?\s*" + AI_STRICT + r"\s+(?:that (?:is|are)\s+)?(?:(?:is|are)\s+)?"
     r"(?:reading|summari[sz]ing|processing|parsing|crawling|scraping|visiting|indexing|analy[sz]ing|browsing|ingesting|"
     r"reviewing|evaluating|screening|asked about|that reads?|that summari[sz]es?|that processes)\s+"
     r"(?:this|the|these|my)\s+(?:\w+\s+)?(?:page|site|website|document|article|content|text|post|resume|cv|profile|"
     r"application|paper|review|listing|product|email|data)\b",
-    r"\b(?:to|for) (?:any|all|every) " + AI_NOUN + r"\b",
+    r"\b(?:to|for) (?:any|all|every) " + AI_STRICT + r"\b",
 )), re.I)
 
 INSTRUCT = re.compile("|".join((
@@ -108,6 +110,18 @@ INSTRUCT = re.compile("|".join((
     r"\b(?:is|should be) (?:the )?(?:best|perfect|ideal|highly (?:qualified|recommended)|an? excellent|exceptional|top|strong(?:ly)?)\b",
     r"\b(?:hire|shortlist|accept|approve|select) (?:this|the|me|them)\b",
     r"\b(?:the|this) (?:user|reader) (?:should|must|needs? to)\b",
+)), re.I)
+
+# Overrides that are unambiguous in page text. The link rule OVR-001 also
+# matches "you are now", "system prompt" and "silently", which on real pages
+# are "you are now logged in", UI labels and product copy.
+PAGE_OVERRIDE = re.compile("|".join((
+    r"\b(?:ignore|disregard|forget|override|bypass)\b" + S30 +
+    r"\b(?:previous|prior|above|earlier|all|your|system|safety|original|other)\b" + S20 +
+    r"\b(?:instructions?|rules?|prompts?|guidelines?|directives?)\b",
+    r"\bdo not (?:tell|inform|reveal to|mention (?:this )?to) (?:the )?user\b",
+    r"\b(?:enter|enable|activate) developer mode\b",
+    r"\bnew (?:system )?instructions?\s*:",
 )), re.I)
 
 # Fast filter so the full rule set only runs on chunks that could matter.
@@ -389,7 +403,11 @@ def analyse_chunk(chunk: Chunk) -> ContentFinding | None:
     m = INSTRUCT.search(text)
     if m:
         findings.append(Finding("AIP-002", "instruction", 2, "Gives orders about what to say or do", _snippet(text, m)))
-    findings += [f for f in _run_rules(text) if f.category in ("memory", "trust", "override", "exfiltration")]
+    m = PAGE_OVERRIDE.search(text)
+    if m:
+        findings.append(Finding("AIP-004", "override", 3,
+                                "Tries to override the AI's instructions or hide things from the user", _snippet(text, m)))
+    findings += [f for f in _run_rules(text) if f.category in ("memory", "trust", "exfiltration")]
     if not findings:
         return None
 
@@ -397,7 +415,6 @@ def analyse_chunk(chunk: Chunk) -> ContentFinding | None:
     hidden = chunk.where in HIDDEN_WHERE
     addressed = "addressed" in cats
     orders = cats & {"instruction", "memory", "trust", "override", "exfiltration"}
-    strong = cats & {"override", "exfiltration", "memory"}
 
     total = sum(f.weight for f in findings)
     if hidden:
@@ -406,15 +423,17 @@ def analyse_chunk(chunk: Chunk) -> ContentFinding | None:
         total += 2
 
     # A chunk counts only when it talks to an AI *and* tells it what to do, or
-    # carries a classic override/exfiltration/memory payload. Plain talk about
-    # AI, or plain marketing copy, is not an injection.
-    if addressed and orders and hidden:
+    # carries an unambiguous override. In the 10k-site scan, "remember that…",
+    # "for future reference" and trust words in hidden text were always
+    # ordinary copy (FAQs, pop-ups), and text that merely names an AI
+    # ("ChatGPT: two years later") was titles, so neither counts on its own.
+    if hidden and addressed and orders:
         verdict = "DANGEROUS"
-    elif hidden and ("exfiltration" in cats or ("override" in cats and (orders - {"override"} or addressed))):
+    elif hidden and "override" in cats and orders - {"override"}:
         verdict = "DANGEROUS"
-    elif hidden and (addressed or strong):
+    elif hidden and "override" in cats:
         verdict = "SUSPICIOUS"
-    elif addressed and (strong or "instruction" in cats):
+    elif addressed and orders:
         # Visible text that orders an AI around: could be a real injection in
         # plain sight, or an article quoting one. Never more than suspicious.
         verdict = "SUSPICIOUS"

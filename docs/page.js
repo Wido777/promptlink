@@ -16,10 +16,11 @@
   var ADDRESS = new RegExp(P.address, "iu");
   var INSTRUCT = new RegExp(P.instruct, "iu");
   var QUICK = new RegExp(P.quick, "iu");
+  var OVERRIDE = new RegExp(P.override, "iu");
   var HIDDEN_WHERE = {};
   P.hiddenWhere.forEach(function (w) { HIDDEN_WHERE[w] = true; });
   var ORDER = { LOOKS_SAFE: 0, SUSPICIOUS: 1, DANGEROUS: 2 };
-  var KEEP = { memory: 1, trust: 1, override: 1, exfiltration: 1 };
+  var KEEP = { memory: 1, trust: 1, exfiltration: 1 };
 
   function cpSlice(s, n) { return Array.from(s).slice(0, n).join(""); }
 
@@ -39,6 +40,7 @@
     var findings = [], m;
     if ((m = ADDRESS.exec(text))) findings.push(f("AIP-001", "addressed", 3, "Speaks directly to an AI reading the page", snippet(text, m)));
     if ((m = INSTRUCT.exec(text))) findings.push(f("AIP-002", "instruction", 2, "Gives orders about what to say or do", snippet(text, m)));
+    if ((m = OVERRIDE.exec(text))) findings.push(f("AIP-004", "override", 3, "Tries to override the AI's instructions or hide things from the user", snippet(text, m)));
     PL.runRules(text).forEach(function (x) { if (KEEP[x.category]) findings.push(x); });
     if (!findings.length) return null;
 
@@ -48,17 +50,16 @@
     var addressed = !!cats.addressed;
     var orders = cats.instruction || cats.memory || cats.trust || cats.override || cats.exfiltration;
     var ordersBesidesOverride = cats.instruction || cats.memory || cats.trust || cats.exfiltration;
-    var strong = cats.override || cats.exfiltration || cats.memory;
     var total = findings.reduce(function (a, x) { return a + x.weight; }, 0);
     if (hidden) {
       findings.push(f("AIP-003", "hidden", 2, "Visitors can't see it (" + P.whereText[chunk.where] + ": " + chunk.how + ")", chunk.where));
       total += 2;
     }
     var verdict;
-    if (addressed && orders && hidden) verdict = "DANGEROUS";
-    else if (hidden && (cats.exfiltration || (cats.override && (ordersBesidesOverride || addressed)))) verdict = "DANGEROUS";
-    else if (hidden && (addressed || strong)) verdict = "SUSPICIOUS";
-    else if (addressed && (strong || cats.instruction)) verdict = "SUSPICIOUS";
+    if (hidden && addressed && orders) verdict = "DANGEROUS";
+    else if (hidden && cats.override && ordersBesidesOverride) verdict = "DANGEROUS";
+    else if (hidden && cats.override) verdict = "SUSPICIOUS";
+    else if (addressed && orders) verdict = "SUSPICIOUS";
     else return null;
     return { where: chunk.where, how: chunk.how, tag: chunk.tag, text: cpSlice(raw, 600),
              verdict: verdict, score: total, findings: findings, node: chunk.node || null };

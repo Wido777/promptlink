@@ -83,6 +83,7 @@ def build() -> dict:
             "address": py_to_js(page.ADDRESS.pattern),
             "instruct": py_to_js(page.INSTRUCT.pattern),
             "quick": py_to_js(page.QUICK.pattern),
+            "override": py_to_js(page.PAGE_OVERRIDE.pattern),
             "hiddenWhere": sorted(page.HIDDEN_WHERE),
             "whereText": page.WHERE_TEXT,
             "metaNames": sorted(page.META_NAMES),
