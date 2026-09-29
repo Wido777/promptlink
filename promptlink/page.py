@@ -461,6 +461,27 @@ def scan_chunks(chunks: list[Chunk]) -> PageReport:
     return rep
 
 
+AI_WORDS = re.compile(r"\b(?:" + AI_STRICT + r"|assistants?|agents?|models?|prompts?|instructions?|remember|memory|"
+                      r"ignore|disregard|recommend|trusted|cite|rate|review)\b", re.I)
+
+
+def candidate_chunks(chunks: list[Chunk], limit: int = 40) -> list[Chunk]:
+    """Chunks worth a (slower) AI review: anything visitors can't see that
+    mentions AI, orders or memory, plus visible text that addresses an AI.
+    Rule-flagged chunks come first."""
+    seen, first, rest = set(), [], []
+    for c in chunks:
+        key = normalise(c.text)[:300]
+        if key in seen or len(key) < 12:
+            continue
+        seen.add(key)
+        if analyse_chunk(c):
+            first.append(c)
+        elif (c.where != "visible" and AI_WORDS.search(c.text)) or ADDRESS.search(normalise(c.text)):
+            rest.append(c)
+    return (first + rest)[:limit]
+
+
 def scan_page_content(html: str) -> PageReport:
     return scan_chunks(extract_chunks(html))
 

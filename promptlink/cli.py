@@ -9,7 +9,9 @@ import sys
 
 from . import __version__
 from .detector import URL_IN_TEXT, check_url, scan_html
-from .page import WHERE_TEXT, scan_page_content
+from .page import WHERE_TEXT, ContentFinding, candidate_chunks, extract_chunks, scan_chunks
+from . import judge as judge_mod
+from .detector import Finding
 
 COLOURS = {
     "DANGEROUS": "\033[1;31m",
@@ -92,6 +94,47 @@ def print_content(rep, source: str, colour: bool) -> None:
     print()
 
 
+def ai_review_links(reports, reviewer) -> None:
+    for rep in reports:
+        if not rep.prompt:
+            continue
+        j = reviewer.judge(rep.prompt, "link")
+        before = rep.verdict
+        rep.verdict = judge_mod.combine(rep.verdict, j)
+        if j.error:
+            rep.notes.append(f"AI review failed: {j.error}")
+        else:
+            rep.findings.append(Finding("AI-001", "ai-review", 0,
+                f"AI review ({j.model}): {'manipulative' if j.manipulative else 'no manipulation'}"
+                f", {j.category}, confidence {j.confidence:.2f}", j.reason))
+            if rep.verdict != before:
+                rep.notes.append(f"The AI review raised this from {before} to {rep.verdict}.")
+
+
+def ai_review_page(html: str, reviewer):
+    chunks = extract_chunks(html)
+    rep = scan_chunks(chunks)
+    by_text = {f.text: f for f in rep.findings}
+    for c in candidate_chunks(chunks):
+        j = reviewer.judge(c.text, "page", f"{WHERE_TEXT.get(c.where, c.where)} ({c.how})" if c.how else c.where)
+        if j.error or not j.flags and c.text[:600] not in by_text:
+            continue
+        f = by_text.get(c.text[:600])
+        if f is None:
+            f = ContentFinding(c.where, c.how, c.tag, c.text[:600], "LOOKS_SAFE", 0, [])
+            rep.findings.append(f)
+            by_text[f.text] = f
+        f.findings.append(Finding("AI-001", "ai-review", 0,
+            f"AI review ({j.model}): {'manipulative' if j.manipulative else 'no manipulation'}, "
+            f"{j.category}, confidence {j.confidence:.2f}", j.reason))
+        f.verdict = judge_mod.combine(f.verdict, j)
+    rep.findings = [f for f in rep.findings if f.verdict != "LOOKS_SAFE"]
+    order = judge_mod.ORDER
+    rep.findings.sort(key=lambda f: (-order[f.verdict], -f.score))
+    rep.verdict = rep.findings[0].verdict if rep.findings else "LOOKS_SAFE"
+    return rep
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(
         prog="promptlink",
@@ -112,21 +155,37 @@ def main(argv=None) -> int:
     p_page.add_argument("file", help="path to a saved .html/.eml/.txt file, - for stdin, or an http(s) URL to download")
     p_page.add_argument("--json", action="store_true", help="print machine-readable JSON")
 
+    for p in (p_check, p_page):
+        p.add_argument("--ai", nargs="?", const="ollama", choices=sorted(judge_mod.BACKENDS), metavar="PROVIDER",
+                       help="also ask an AI model to judge intent (catches reworded attacks). PROVIDER: ollama "
+                            "(local, default), openai or anthropic (your own key in OPENAI_API_KEY / "
+                            "ANTHROPIC_API_KEY). Sends the checked text to that provider.")
+        p.add_argument("--ai-model", help="model name for --ai (default depends on the provider)")
+
     args = parser.parse_args(argv)
     colour = _use_colour(sys.stdout) and not args.json
+    reviewer = None
+    if args.ai:
+        try:
+            reviewer = judge_mod.make_reviewer(args.ai, args.ai_model)
+        except ValueError as e:
+            parser.error(str(e))
 
     if args.command == "check":
         urls = args.urls or [line.strip() for line in sys.stdin if line.strip()]
         if not urls:
             parser.error("give at least one link, or pipe links in")
         reports = [check_url(u) for u in urls]
+        if reviewer:
+            ai_review_links(reports, reviewer)
         followed = []
         if args.follow:
             for rep in reports:
                 for target in list(dict.fromkeys(URL_IN_TEXT.findall(rep.prompt or "")))[:3]:
                     target = target.rstrip(".,;)")
                     try:
-                        followed.append((target, scan_page_content(fetch_page(target if "://" in target else "https://" + target))))
+                        html = fetch_page(target if "://" in target else "https://" + target)
+                        followed.append((target, ai_review_page(html, reviewer) if reviewer else scan_chunks(extract_chunks(html))))
                     except Exception as e:  # noqa: BLE001
                         print(f"could not read {target}: {e}", file=sys.stderr)
     else:
@@ -138,7 +197,9 @@ def main(argv=None) -> int:
             with open(args.file, encoding="utf-8", errors="replace") as fh:
                 content = fh.read()
         reports = scan_html(content)
-        followed = [(args.file, scan_page_content(content))]
+        if reviewer:
+            ai_review_links(reports, reviewer)
+        followed = [(args.file, ai_review_page(content, reviewer) if reviewer else scan_chunks(extract_chunks(content)))]
 
     if args.json:
         if args.command == "check" and not args.follow:
