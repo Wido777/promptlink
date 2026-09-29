@@ -2,7 +2,7 @@
 // Do not edit by hand: change the Python rules and re-run the script.
 (function (g) {
   var RULES = {
- "version": "0.3.1",
+ "version": "0.4.0",
  "assistantHosts": {
   "chatgpt.com": "ChatGPT",
   "chat.openai.com": "ChatGPT",

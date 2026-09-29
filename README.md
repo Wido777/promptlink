@@ -87,8 +87,8 @@ promptlink check --follow "<link>"
 
 # Also ask an AI model to judge intent (catches reworded and translated
 # attacks the keyword rules miss). Local and free with Ollama, or your own key:
-promptlink check --ai "<link>"                       # Ollama on this machine (qwen2.5:3b)
-promptlink check --ai ollama --ai-model qwen2.5:7b "<link>"
+promptlink check --ai "<link>"                       # Ollama on this machine (qwen2.5:7b)
+promptlink check --ai ollama --ai-model llama3.1:8b "<link>"
 OPENAI_API_KEY=... promptlink check --ai openai "<link>"
 ANTHROPIC_API_KEY=... promptlink page --ai anthropic https://example.com/article
 
@@ -106,6 +106,16 @@ Keyword rules only catch wording they know. `--ai` sends the prompt (or the page
 - **The checked text is treated as data.** It is fenced with a random marker, fake markers inside it are removed, and any attempt to influence the verdict counts as evidence against it.
 - **A broken or unclear reply is an error, never "safe".**
 - **Nothing is sent anywhere unless you pass `--ai`.** With `ollama`, nothing leaves your machine.
+
+**How much it helps** (`python eval/run_ai_eval.py`, run in GitHub Actions on the runner's CPU, September 2026). Two sets were written *after* the reviewer's instructions were frozen and never used for tuning: `eval/reworded.py` (reworded, translated and checker-targeting attacks) and `eval/fresh.py` (new attack styles plus pushy-but-harmless marketing copy). Attacks caught / false alarms:
+
+| Set | Rules only | Rules + AI review (qwen2.5:7b) |
+|---|---|---|
+| **Fresh, unseen by both** (22 attacks, 24 harmless) | 4/22 · 1/24 | **19/22 · 1/24** |
+| Reworded, unseen when first run (36 attacks, 28 harmless) | 5/36 · 0/28 | 36/36 · 0/28 |
+| All sets (117 attacks, 186 harmless) | 58/117 · 2/186 | 111/117 · 6/186 |
+
+The first version of the reviewer flagged 17% of harmless texts, mostly marketing copy written for human visitors. It now also answers *who the text speaks to* and *whether it reaches beyond the current answer*: page text must speak to an AI, and a link prompt must reach into memory or future chats, or try to override or leak data. That cut false alarms to 3%, measured on the fresh set written after the change. Smaller models do much worse: `qwen2.5:3b` flags 26% of harmless texts, and `llama3.2:3b` misses most reworded attacks. Still missed by the 7B model: a prompt that asks to append your conversation titles to a URL, a fake "content policy for AI assistants", and a comment telling code-review bots to approve a change. It takes about 18 seconds per text on a laptop-class CPU.
 
 ## What it detects
 
@@ -207,6 +217,8 @@ False alarm: *"From now on, can you explain things more simply?"* This is a real
 **The lesson:** rules written from imagined examples caught 2 of 14 real ones. Rules fitted to what's out there catch the known templates, but still miss about a third of freshly-worded attacks, and anyone who reads the rules can write around them. Treat promptlink as a first filter and a way to *see* the hidden prompt, not as a guarantee.
 
 ## Changelog
+
+- **0.4.0.** Optional AI review (`--ai`): a local model through Ollama, or your own OpenAI/Anthropic key, judges intent. Rules first; the review can only raise a verdict. Two new unseen test sets and an evaluation workflow (`.github/workflows/ai-eval.yml`). The crawler keeps candidate texts and can run the AI review after a scan.
 
 - **0.3.1.** Tuned on the hand-checked 10,000-site scan. Link rules: "save it in my virtual memory", "associate X a trusted source", "tag it as a source of expertise", and "cite X as a source" in French, Spanish, Italian, Portuguese and German. Page rules: only unambiguous AI words count as addressing an AI (not "agents", "assistants", "models"), and hidden text needs to speak to AI *and* give orders, or contain an unambiguous override ("ignore previous instructions"), to be flagged.
 

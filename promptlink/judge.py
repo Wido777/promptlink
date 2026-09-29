@@ -185,7 +185,7 @@ class Reviewer:
 class OllamaReviewer(Reviewer):
     name = "ollama"
 
-    def __init__(self, model: str = "qwen2.5:3b", base_url: str | None = None, timeout: float = 180):
+    def __init__(self, model: str = "qwen2.5:7b", base_url: str | None = None, timeout: float = 180):
         super().__init__(model, timeout)
         self.base = (base_url or os.environ.get("OLLAMA_HOST") or "http://localhost:11434").rstrip("/")
         if not self.base.startswith("http"):
