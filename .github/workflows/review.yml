@@ -1,0 +1,39 @@
+name: review
+
+# Prints every flagged item from an earlier scan run, with sites anonymised,
+# so flags can be checked by hand without naming anyone.
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: "ID of the scan run to review"
+        required: true
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: ${{ inputs.run_id }}
+          github-token: ${{ github.token }}
+          path: scan
+      - name: Anonymised review list
+        run: |
+          python research/review.py scan/*/results.jsonl > review.md
+          wc -c review.md
+          cat review.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Publish as annotations (part 1)
+        run: python research/annotate.py review.md 0 10
+      - name: Publish as annotations (part 2)
+        run: python research/annotate.py review.md 10 10
+      - name: Publish as annotations (part 3)
+        run: python research/annotate.py review.md 20 10
