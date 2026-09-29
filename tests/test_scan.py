@@ -93,7 +93,8 @@ class ScanFakeSites(unittest.TestCase):
         import review
         import summarize
         from test_judge import FakeProvider
-        fake = FakeProvider({"manipulative": True, "category": "hidden-orders", "confidence": 0.9,
+        fake = FakeProvider({"speaks_to_ai": True, "persistent": True, "manipulative": True,
+                             "category": "hidden-orders", "confidence": 0.9,
                              "reason": "tells the AI what to say about Site F"})
         os.environ["OLLAMA_HOST"] = fake.url
         try:

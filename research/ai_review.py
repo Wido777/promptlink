@@ -65,7 +65,7 @@ def main(argv=None):
                 break
             where = f"{it.get('where')} ({it.get('how')})" if it["kind"] == "page" else ""
             j = reviewer.judge(it["text"], it["kind"], where)
-            out.write(json.dumps({**it, "sites": sorted(it["sites"]), "ai": j.to_dict(), "ai_flags": j.flags},
+            out.write(json.dumps({**it, "sites": sorted(it["sites"]), "ai": j.to_dict(), "ai_flags": j.raises(it["kind"])},
                                  ensure_ascii=False) + "\n")
             done += 1
             if done % 50 == 0:

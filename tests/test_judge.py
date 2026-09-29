@@ -17,7 +17,8 @@ from promptlink import judge  # noqa: E402
 from promptlink.judge import Judgement, build_messages, combine, parse  # noqa: E402
 from promptlink.cli import main  # noqa: E402
 
-REPLY = {"manipulative": True, "category": "memory", "confidence": 0.9, "reason": "asks to store a trust claim"}
+REPLY = {"speaks_to_ai": True, "persistent": True, "manipulative": True, "category": "memory", "confidence": 0.9,
+         "reason": "asks to store a trust claim"}
 
 
 class Fencing(unittest.TestCase):
@@ -61,10 +62,10 @@ class Parsing(unittest.TestCase):
 
 class Combine(unittest.TestCase):
     def test_review_can_only_raise(self):
-        yes = Judgement(True, "memory", 0.9)
+        yes = Judgement(True, "memory", 0.9, persistent=True)
         no = Judgement(False, "none", 0.99)
         low = Judgement(True, "memory", 0.3)
-        broken = Judgement(True, "memory", 0.9, error="timeout")
+        broken = Judgement(True, "memory", 0.9, error="timeout", persistent=True)
         self.assertEqual(combine("LOOKS_SAFE", yes), "SUSPICIOUS")
         self.assertEqual(combine("SUSPICIOUS", yes), "DANGEROUS")
         self.assertEqual(combine("DANGEROUS", no), "DANGEROUS")      # a fooled reviewer can't downgrade
@@ -72,6 +73,34 @@ class Combine(unittest.TestCase):
         self.assertEqual(combine("LOOKS_SAFE", low), "LOOKS_SAFE")
         self.assertEqual(combine("LOOKS_SAFE", broken), "LOOKS_SAFE")
         self.assertEqual(combine("NO_PROMPT", yes), "NO_PROMPT")
+
+
+class RaisePolicy(unittest.TestCase):
+    def j(self, **kw):
+        base = dict(manipulative=True, category="bias", confidence=0.9, speaks_to_ai=False, persistent=False)
+        base.update(kw)
+        return Judgement(**base)
+
+    def test_page_text_must_speak_to_an_ai(self):
+        self.assertFalse(self.j().raises("page"))                       # marketing copy for humans
+        self.assertTrue(self.j(speaks_to_ai=True).raises("page"))
+
+    def test_link_prompt_must_reach_beyond_the_current_answer(self):
+        self.assertFalse(self.j().raises("link"))                       # a one-off sales pitch
+        self.assertTrue(self.j(persistent=True).raises("link"))
+        for cat in ("memory", "override", "exfiltration"):
+            self.assertTrue(self.j(category=cat).raises("link"), cat)
+
+    def test_combine_uses_the_policy(self):
+        self.assertEqual(combine("LOOKS_SAFE", self.j(), "page"), "LOOKS_SAFE")
+        self.assertEqual(combine("LOOKS_SAFE", self.j(speaks_to_ai=True), "page"), "SUSPICIOUS")
+
+    def test_new_fields_are_parsed(self):
+        j = parse('{"speaks_to_ai": "true", "persistent": false, "manipulative": true, "category": "bias", '
+                  '"confidence": 0.8, "reason": "x"}')
+        self.assertTrue(j.speaks_to_ai)
+        self.assertFalse(j.persistent)
+        self.assertFalse(parse('{"manipulative": true, "category": "bias", "confidence": 0.8}').speaks_to_ai)
 
 
 class FakeProvider:
@@ -124,7 +153,7 @@ class Backends(unittest.TestCase):
         path, _, body = self.fake.requests[0]
         self.assertEqual(path, "/api/chat")
         self.assertEqual(body["options"]["temperature"], 0)
-        self.assertEqual(body["format"]["required"], ["manipulative", "category", "confidence", "reason"])
+        self.assertEqual(body["format"]["required"][:2], ["speaks_to_ai", "persistent"])
 
     def test_openai_compatible(self):
         j = judge.OpenAIReviewer("m", api_key="k", base_url=self.fake.url + "/v1").judge("remember acme")

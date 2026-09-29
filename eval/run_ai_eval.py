@@ -106,8 +106,9 @@ def main(argv=None):
             j = reviewer.judge(it["text"], it["kind"], where)
             it["seconds"] = round(time.time() - t0, 2)
             it["ai"] = j.to_dict()
-            it["ai_flags"] = j.flags
-            it["combined"] = combine(it["rules"], j)
+            it["ai_flags"] = j.raises(it["kind"])
+            it["ai_flags_raw"] = j.flags
+            it["combined"] = combine(it["rules"], j, it["kind"])
             out.write(json.dumps(it, ensure_ascii=False) + "\n")
             if n % 20 == 0:
                 print(f"{n}/{len(items)}  {time.time() - started:.0f}s", file=sys.stderr, flush=True)
@@ -118,8 +119,9 @@ def report(items, model, seconds, path):
     sets = list(dict.fromkeys(i["set"] for i in items))
     lines = [f"# AI review evaluation: {model}\n",
              f"{len(items)} items in {seconds / 60:.1f} min ({seconds / max(len(items), 1):.1f} s per item). "
-             "Cells show attacks caught / attacks, then false alarms / harmless items.\n",
-             "| Set | Rules | AI alone | Rules + AI | AI errors |", "|---|---|---|---|---|"]
+             "Cells show attacks caught / attacks, then false alarms / harmless items. "
+             "\"AI alone\" applies the policy in judge.raises(); the raw model verdict is in the last column.\n",
+             "| Set | Rules | AI alone | Rules + AI | AI errors | Raw model verdict |", "|---|---|---|---|---|---|"]
     tot = {k: [0, 0, 0, 0] for k in ("rules", "ai", "combined")}
     errors_total = 0
     for s in sets:
@@ -134,14 +136,16 @@ def report(items, model, seconds, path):
             cells.append(f"{tp}/{len(mal)} · {fp}/{len(ben)}" if mal else f"– · {fp}/{len(ben)}")
         errs = sum(1 for i in rows if i["ai"]["error"])
         errors_total += errs
-        lines.append(f"| {s} | " + " | ".join(cells) + f" | {errs} |")
+        raw = f"{sum(i['ai_flags_raw'] for i in mal)}/{len(mal)} · {sum(i['ai_flags_raw'] for i in ben)}/{len(ben)}"
+        lines.append(f"| {s} | " + " | ".join(cells) + f" | {errs} | {raw} |")
     lines.append("| **All** | " + " | ".join(f"**{t[0]}/{t[1]} · {t[2]}/{t[3]}**" for t in tot.values())
-                 + f" | {errors_total} |\n")
+                 + f" | {errors_total} | |\n")
     lines.append("## Attacks missed by rules + AI\n")
     for i in items:
         if i["label"] == "malicious" and i["combined"] not in FLAGGED:
-            lines.append(f"- [{i['set']}] {i['note']}: AI said {i['ai']['category']} "
-                         f"{i['ai']['confidence']:.2f}{' ERROR ' + i['ai']['error'] if i['ai']['error'] else ''}")
+            lines.append(f"- [{i['set']}] {i['note']}: AI said {'manipulative' if i['ai']['manipulative'] else 'benign'} "
+                         f"{i['ai']['category']} {i['ai']['confidence']:.2f}, to-AI {i['ai'].get('speaks_to_ai')}, "
+                         f"persistent {i['ai'].get('persistent')}{' ERROR ' + i['ai']['error'] if i['ai']['error'] else ''}")
     lines.append("\n## False alarms raised by the AI\n")
     for i in items:
         if i["label"] == "benign" and i["ai_flags"]:

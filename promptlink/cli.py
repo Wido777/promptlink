@@ -100,7 +100,7 @@ def ai_review_links(reports, reviewer) -> None:
             continue
         j = reviewer.judge(rep.prompt, "link")
         before = rep.verdict
-        rep.verdict = judge_mod.combine(rep.verdict, j)
+        rep.verdict = judge_mod.combine(rep.verdict, j, "link")
         if j.error:
             rep.notes.append(f"AI review failed: {j.error}")
         else:
@@ -117,7 +117,7 @@ def ai_review_page(html: str, reviewer):
     by_text = {f.text: f for f in rep.findings}
     for c in candidate_chunks(chunks):
         j = reviewer.judge(c.text, "page", f"{WHERE_TEXT.get(c.where, c.where)} ({c.how})" if c.how else c.where)
-        if j.error or not j.flags and c.text[:600] not in by_text:
+        if j.error or not j.raises("page") and c.text[:600] not in by_text:
             continue
         f = by_text.get(c.text[:600])
         if f is None:
@@ -127,7 +127,7 @@ def ai_review_page(html: str, reviewer):
         f.findings.append(Finding("AI-001", "ai-review", 0,
             f"AI review ({j.model}): {'manipulative' if j.manipulative else 'no manipulation'}, "
             f"{j.category}, confidence {j.confidence:.2f}", j.reason))
-        f.verdict = judge_mod.combine(f.verdict, j)
+        f.verdict = judge_mod.combine(f.verdict, j, "page")
     rep.findings = [f for f in rep.findings if f.verdict != "LOOKS_SAFE"]
     order = judge_mod.ORDER
     rep.findings.sort(key=lambda f: (-order[f.verdict], -f.score))
