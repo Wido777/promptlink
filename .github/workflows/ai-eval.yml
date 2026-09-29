@@ -11,7 +11,7 @@ on:
         default: "qwen2.5:3b,llama3.2:3b,qwen2.5:7b"
       sets:
         description: "Sets to run"
-        default: "reworded,holdout,real,wild,scan,pages"
+        default: "fresh,reworded,holdout,real,wild,scan,pages"
 
 permissions:
   contents: read

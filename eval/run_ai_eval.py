@@ -30,6 +30,7 @@ import in_the_wild  # noqa: E402
 import pages  # noqa: E402
 import real_world  # noqa: E402
 import reworded  # noqa: E402
+import fresh  # noqa: E402
 import scan_10k  # noqa: E402
 from promptlink.page import extract_chunks  # noqa: E402
 
@@ -56,6 +57,10 @@ def build(sets):
         items += link_items(reworded.LINKS, "reworded links (unseen)")
         items += [{"set": "reworded page text (unseen)", "kind": "page", "label": l, "text": t, "where": w, "how": h,
                    "note": n} for l, t, w, h, n in reworded.PAGES]
+    if "fresh" in sets:
+        items += link_items(fresh.LINKS, "fresh links (unseen, v2)")
+        items += [{"set": "fresh page text (unseen, v2)", "kind": "page", "label": l, "text": t, "where": w, "how": h,
+                   "note": n} for l, t, w, h, n in fresh.PAGES]
     if "holdout" in sets:
         items += link_items([("malicious", p, n) for p, n in holdout.MALICIOUS] +
                             [("benign", p, n) for p, n in holdout.BENIGN], "held-out links")
@@ -89,7 +94,7 @@ def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("--provider", default="ollama")
     ap.add_argument("--model")
-    ap.add_argument("--sets", default="reworded,holdout,real,wild,scan,pages")
+    ap.add_argument("--sets", default="fresh,reworded,holdout,real,wild,scan,pages")
     ap.add_argument("--out", default="ai_eval.md")
     ap.add_argument("--jsonl", default="ai_eval.jsonl")
     args = ap.parse_args(argv)
