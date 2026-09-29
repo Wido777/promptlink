@@ -40,6 +40,17 @@ DANGEROUS  - do not open this link
 - Attacker-controlled text is always shown as plain text, never as HTML, and checked links are never made clickable.
 - The rules are not rewritten by hand for the web. `scripts/export_web_rules.py` generates `docs/rules.js` straight from `promptlink/detector.py`, and `tests/test_web_parity.py` checks that the browser engine gives identical results to the Python one on 500+ links.
 
+## Browser extension
+
+The extension checks every page you visit, as it's actually rendered, so it also catches text hidden by stylesheets or added by scripts after the page loads. The toolbar icon shows a red **!** when a page hides instructions aimed at AI (or has a poisoned "Summarize with AI" link), and a yellow **?** when something is worth a look. Click it to see the exact text, where it was hidden and why it was flagged.
+
+It runs entirely in your browser: no network requests, no storage, and its only permission is `activeTab`.
+
+**Install (Chrome, Edge, Brave):** download or clone this repo, open `chrome://extensions`, turn on *Developer mode*, click *Load unpacked* and pick the `extension/` folder.
+**Firefox:** open `about:debugging#/runtime/this-firefox`, click *Load Temporary Add-on* and pick `extension/manifest.json`.
+
+Try it on `extension/test/demo.html` (serve the folder with `python -m http.server`), a fake review page with five different tricks.
+
 ## Install the command-line tool
 
 Python 3.9+, no dependencies.
