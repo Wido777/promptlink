@@ -37,3 +37,7 @@ jobs:
         run: python research/annotate.py review.md 10 10
       - name: Publish as annotations (part 3)
         run: python research/annotate.py review.md 20 10
+      - name: Publish as annotations (part 4)
+        run: python research/annotate.py review.md 30 10
+      - name: Publish as annotations (part 5)
+        run: python research/annotate.py review.md 40 10

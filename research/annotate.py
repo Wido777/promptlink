@@ -6,7 +6,7 @@ read back through the API. GitHub keeps at most 10 notices per step.
 
 import sys
 
-CHUNK = 20000
+CHUNK = 4000   # GitHub truncates notice messages at about 4 KB
 
 text = open(sys.argv[1], encoding="utf-8").read()
 first, count = int(sys.argv[2]), int(sys.argv[3])
