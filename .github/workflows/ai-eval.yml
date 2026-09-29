@@ -1,0 +1,64 @@
+name: ai-eval
+
+# Scores the keyword rules, the AI review, and both combined on every
+# labelled set, using small open models that run on the runner's CPU
+# through Ollama. No API key and no cost.
+on:
+  workflow_dispatch:
+    inputs:
+      models:
+        description: "Comma-separated Ollama models"
+        default: "qwen2.5:3b,llama3.2:3b,qwen2.5:7b"
+      sets:
+        description: "Sets to run"
+        default: "reworded,holdout,real,wild,scan,pages"
+
+permissions:
+  contents: read
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      models: ${{ steps.m.outputs.models }}
+    steps:
+      - id: m
+        run: python3 -c "import json,os;print('models='+json.dumps([m.strip() for m in os.environ['M'].split(',') if m.strip()]))" >> "$GITHUB_OUTPUT"
+        env:
+          M: ${{ inputs.models }}
+
+  eval:
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    strategy:
+      fail-fast: false
+      matrix:
+        model: ${{ fromJson(needs.plan.outputs.models) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install Ollama and pull the model
+        run: |
+          curl -fsSL https://ollama.com/install.sh | sh
+          (ollama serve > ollama.log 2>&1 &) ; sleep 5
+          for i in $(seq 30); do curl -s localhost:11434/api/version && break; sleep 2; done
+          ollama pull "${{ matrix.model }}"
+      - name: Evaluate
+        run: python eval/run_ai_eval.py --provider ollama --model "${{ matrix.model }}" --sets "${{ inputs.sets }}" --out ai_eval.md --jsonl ai_eval.jsonl
+      - name: Publish as annotations
+        env:
+          ANNOTATION_TITLE: "ai-eval ${{ matrix.model }}"
+        run: |
+          cat ai_eval.md >> "$GITHUB_STEP_SUMMARY"
+          python research/annotate.py ai_eval.md 0 10
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ai-eval-${{ strategy.job-index }}
+          path: |
+            ai_eval.md
+            ai_eval.jsonl
+          retention-days: 14
