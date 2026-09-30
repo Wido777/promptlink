@@ -90,7 +90,12 @@ jobs:
       - name: Anonymised review list (more)
         env:
           ANNOTATION_TITLE: review part
-        run: python research/annotate.py review.md 10 10
+        run: |
+          python research/annotate.py review.md 10 10
+      - name: Anonymised review list (rest)
+        env:
+          ANNOTATION_TITLE: review part
+        run: python research/annotate.py review.md 20 10
       - uses: actions/upload-artifact@v4
         with:
           name: scan-${{ inputs.sample }}-${{ inputs.sites }}-seed${{ inputs.seed }}-from${{ inputs.offset }}
