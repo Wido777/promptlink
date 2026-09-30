@@ -17,6 +17,7 @@ from promptlink.page import extract_chunks, scan_page_content, scan_text_file  #
 from promptlink.cli import main  # noqa: E402
 import pages  # noqa: E402
 import scan_10k  # noqa: E402
+import scan_seed3  # noqa: E402
 import test_sites  # noqa: E402
 
 
@@ -40,6 +41,18 @@ class RealScan(unittest.TestCase):
         for text, where, how, tag, note in scan_10k.CONTENT:
             with self.subTest(note=note, text=text[:60]):
                 self.assertIsNone(analyse_chunk(Chunk(text, where, how, tag)))
+
+    def test_second_scan(self):
+        from promptlink import check_url
+        from promptlink.page import Chunk, analyse_chunk
+        for text, where, how, label, note in scan_seed3.CONTENT:
+            if label == "benign":
+                with self.subTest(note=note, text=text[:60]):
+                    self.assertIsNone(analyse_chunk(Chunk(text, where, how, "div")))
+        for label, prompt, note in scan_seed3.LINKS:
+            with self.subTest(note=note, prompt=prompt[:60]):
+                flagged = check_url("https://chatgpt.com/?q=" + quote(prompt)).verdict in ("SUSPICIOUS", "DANGEROUS")
+                self.assertEqual(flagged, label == "malicious")
 
     def test_real_link_prompts(self):
         from promptlink import check_url

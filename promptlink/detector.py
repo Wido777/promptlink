@@ -172,7 +172,11 @@ RULES = (
           r"\b(?:merke? dir|speichere?\b.{0,30}\bged[äa]chtnis|in zukunft|ab (?:jetzt|sofort)|von nun an|"
           r"k[üu]nftig|in (?:allen )?(?:zuk[üu]nftigen|sp[äa]teren) (?:gespr[äa]chen|chats))",
           r"\b(?:ricorda che|ricordati|memorizza|d'ora in poi|in futuro|da ora in poi)\b",
-          r"\b(?:lembre-se|lembra que|memorize que|a partir de agora|no futuro|daqui em diante)\b")),
+          r"\b(?:lembre-se|lembra que|memorize que|a partir de agora|no futuro|daqui em diante)\b",
+          # Ukrainian / Russian: "save to memory", "remember", "from now on" (found live in the Sept 2026 scan)
+          r"(?:збережи|запам['ʼ’]?ятай|запиши)\w*.{0,40}(?:пам['ʼ’]?ят|на майбутнє)|"
+          r"(?:сохрани|запомни|запиши)\w*.{0,40}(?:памят|на будущее)|"
+          r"(?:на майбутнє|надалі|відтепер|на будущее|впредь|отныне|с этого момента)")),
     Rule("INT-002", "trust", 2,
          "Trust or 'best source' claim in another language",
          (r"\b(?:cite[rz]?|citar|citare|zitieren?|nenne)\b.{0,40}\b(?:comme|como|come|als) (?:une? |la |el |a )?(?:source|fuente|fonte|quelle)\b",
@@ -180,7 +184,9 @@ RULES = (
           r"mejor fuente|fuente (?:m[áa]s )?fiable|fuente de confianza|"
           r"vertrauensw[üu]rdig\w*|beste quelle|zuverl[äa]ssigste\w*|"
           r"migliore fonte|fonte (?:pi[ùu] )?affidabile|fonte attendibile|"
-          r"melhor fonte|fonte (?:mais )?confi[áa]vel)",)),
+          r"melhor fonte|fonte (?:mais )?confi[áa]vel)",
+          r"(?:авторитетн|надійн|довірен|надёжн|доверенн|лучш)\w*\s+(?:джерел|источник)\w*|"
+          r"(?:джерел|источник)\w*\s+(?:авторитетн|надійн|довірен|надёжн|доверенн)\w*")),
     # ---------------- override / stealth ----------------
     Rule("OVR-001", "override", 3,
          "Tries to override the assistant's instructions or hide what it does",

@@ -77,7 +77,9 @@ AI_STRICT = (r"(?:ai|a\.i\.|llms?|large language models?|language models?|chat ?
 
 ADDRESS = re.compile("|".join((
     # "If you are an AI / a language model / ChatGPT ..."
-    r"\b(?:if|when|since|because|as long as) you(?:'re| are| were)\s+(?:an?\s+|the\s+)?(?:\w+\s+){0,2}" + AI_STRICT + r"\b",
+    # "if you are an AI", "if you are a large language model" (not "if you are wary of AI")
+    r"\b(?:if|when|since|because|as long as) you(?:'re| are| were)\s+(?:an?\s+|the\s+)?"
+    r"(?:(?!of\b|about\b|with\b|in\b|on\b|for\b|using\b|into\b|new\b|to\b)\w+\s+){0,2}" + AI_STRICT + r"\b",
     r"\bas an? " + AI_STRICT + r"(?: \w+)?,? you\b",
     # "Note to AI:", "Instructions for language models:", "Attention LLMs!"
     r"\b(?:note|message|memo|instructions?|directions?|attention|important|notice|warning|reminder|hey|hello|hi|dear|psst)"
@@ -120,7 +122,7 @@ PAGE_OVERRIDE = re.compile("|".join((
     r"\b(?:previous|prior|above|earlier|all|your|system|safety|original|other)\b" + S20 +
     r"\b(?:instructions?|rules?|prompts?|guidelines?|directives?)\b",
     r"\bdo not (?:tell|inform|reveal to|mention (?:this )?to) (?:the )?user\b",
-    r"\b(?:enter|enable|activate) developer mode\b",
+    r"\b(?:enter|activate|switch to|you are (?:now )?in) developer mode\b",   # not "enable": settings how-tos
     r"\bnew (?:system )?instructions?\s*:",
 )), re.I)
 
